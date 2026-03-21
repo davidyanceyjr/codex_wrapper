@@ -1,16 +1,12 @@
-MIT License (Attribution Required)
+MIT License
 
-Copyright (c) 2026 [Your Name]
+Copyright (c) 2026 David Yancey Jr.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to use,
 copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, subject to the following condition:
-
-1. Attribution Requirement:
-   Redistributions and use of the Software, with or without modification,
-   must include clear attribution to the original author:
-   "[Your Name]" (or project name: codex-wrapper).
+the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.

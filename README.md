@@ -306,18 +306,8 @@ This prints:
 
 ---
 
-## Attribution
-
-If you use this wrapper, retain attribution to:
-
-```
-codex-wrapper by David
-```
-
----
-
 ## License
 
-MIT (Attribution Required)
+MIT
 
-See LICENSE file for details.
+See LICENSE.md for details.
