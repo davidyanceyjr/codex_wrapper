@@ -351,6 +351,88 @@ stubbed_systemd_run_invokes_command: 1"
     "$passed"
 }
 
+@test "sandbox failure with empty unit inspection does not invoke fallback" {
+  export STUB_SYSTEMD_RUN_INVOKE_COMMAND=1
+  export STUB_SYSTEMD_RUN_EXIT=7
+  export STUB_SYSTEMCTL_MODE=empty
+  export STUB_CODEX_EXIT=0
+  export CODEX_WRAPPER_DEBUG=1
+  run_wrapper -- --help
+
+  local input_value actual_value passed
+  input_value="argv: codex -- --help
+stdin_type: non-tty
+stdin_value: <empty>
+stubbed_systemd_run_exit: 7
+stubbed_systemctl_mode: empty
+stubbed_systemd_run_invokes_command: 1"
+  actual_value="$(printf 'status=%s\noutput=\n%s\ncodex_invocation_count=%s' \
+    "$status" \
+    "$output" \
+    "$(wc -l < "$TEST_LOG_DIR/codex.args")")"
+
+  passed=0
+  if [[ $status == 7 ]] &&
+     [[ $output == *"unit inspection incomplete; not falling back"* ]] &&
+     [[ $output != *"falling back to direct run"* ]] &&
+     [[ -f $TEST_LOG_DIR/codex.args ]] &&
+     [[ $(wc -l < "$TEST_LOG_DIR/codex.args") -gt 0 ]] &&
+     [[ $(head -n 1 "$TEST_LOG_DIR/codex.args") == "exec" ]]; then
+    passed=1
+  fi
+
+  assert_true_report \
+    "sandbox failure with empty unit inspection does not invoke fallback" \
+    "wrapper invocation with empty inspection output" \
+    "$input_value" \
+    "conditions" \
+    "status equals sandbox rc; output states inspection was incomplete; fallback log line absent; codex args show only the primary invocation" \
+    "record" \
+    "$actual_value" \
+    "$passed"
+}
+
+@test "sandbox failure with failed unit inspection does not invoke fallback" {
+  export STUB_SYSTEMD_RUN_INVOKE_COMMAND=1
+  export STUB_SYSTEMD_RUN_EXIT=7
+  export STUB_SYSTEMCTL_MODE=fail
+  export STUB_CODEX_EXIT=0
+  export CODEX_WRAPPER_DEBUG=1
+  run_wrapper -- --help
+
+  local input_value actual_value passed
+  input_value="argv: codex -- --help
+stdin_type: non-tty
+stdin_value: <empty>
+stubbed_systemd_run_exit: 7
+stubbed_systemctl_mode: fail
+stubbed_systemd_run_invokes_command: 1"
+  actual_value="$(printf 'status=%s\noutput=\n%s\ncodex_invocation_count=%s' \
+    "$status" \
+    "$output" \
+    "$(wc -l < "$TEST_LOG_DIR/codex.args")")"
+
+  passed=0
+  if [[ $status == 7 ]] &&
+     [[ $output == *"unit inspection failed; not falling back"* ]] &&
+     [[ $output != *"falling back to direct run"* ]] &&
+     [[ -f $TEST_LOG_DIR/codex.args ]] &&
+     [[ $(wc -l < "$TEST_LOG_DIR/codex.args") -gt 0 ]] &&
+     [[ $(head -n 1 "$TEST_LOG_DIR/codex.args") == "exec" ]]; then
+    passed=1
+  fi
+
+  assert_true_report \
+    "sandbox failure with failed unit inspection does not invoke fallback" \
+    "wrapper invocation with failed inspection output" \
+    "$input_value" \
+    "conditions" \
+    "status equals sandbox rc; output states inspection failed; fallback log line absent; codex args show only the primary invocation" \
+    "record" \
+    "$actual_value" \
+    "$passed"
+}
+
 @test "pre-double-dash policy flags are stripped before wrapper policy is injected" {
   run_wrapper --sandbox danger-full-access --ask-for-approval never --cd /tmp -c foo=bar -- yolo
 
