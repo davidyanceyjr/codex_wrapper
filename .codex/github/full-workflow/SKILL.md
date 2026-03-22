@@ -1,6 +1,6 @@
 ---
 name: full-workflow
-description: Use when work needs the complete repository Git and GitHub lifecycle in one procedure: create or identify an issue, create the issue-mapped branch, stage and commit focused changes, push the branch, create a PR that auto-closes the issue, merge it, and clean up local and remote branch state afterward.
+description: Use when work needs the complete repository Git and GitHub lifecycle in one procedure with explicit approval checkpoints: create or identify an issue, create the issue-mapped branch, stage and commit focused changes, push the branch, create a PR that auto-closes the issue, merge it, and clean up local and remote branch state afterward.
 ---
 
 # full-workflow
@@ -16,6 +16,7 @@ Use When
 - the user wants one end-to-end Git/GitHub workflow
 - a tracked implementation slice is ready to move from issue creation through merge
 - issue auto-closing and post-merge cleanup must be handled consistently
+- the user is comfortable approving issue/commit/PR/merge text while the AI performs the mechanics
 
 Inputs
 ------
@@ -35,7 +36,7 @@ Procedure
 
 2. Identify or create the issue
 
-   - If no tracked issue exists, draft and create one with:
+   - If no tracked issue exists, draft one with:
      - Problem
      - Why it matters
      - Scope
@@ -43,7 +44,8 @@ Procedure
      - Acceptance criteria
      - Conformance tests
      - Spec references
-   - Prefer:
+   - Present the title/body for approval.
+   - After approval, prefer:
 
      `gh issue create --title "<title>" --body-file <file>`
 
@@ -54,7 +56,8 @@ Procedure
 
      `<type>/<issue-number>-<slug>`
 
-   - Preferred sequence:
+   - Present the branch name for approval.
+   - Preferred sequence after approval:
 
      `git switch main`
 
@@ -79,6 +82,8 @@ Procedure
 
      `feat(cli): emit deterministic invalid-artifact metadata (#42)`
 
+   - Present the exact commit message for approval before committing.
+
 6. Push the branch
 
    - Push with upstream tracking:
@@ -96,14 +101,16 @@ Procedure
 
      `Closes #<issue-number>`
 
-   - Preferred command:
+   - Present the PR title/body for approval.
+   - Preferred command after approval:
 
      `gh pr create --title "<pr-title>" --body-file <file>`
 
 8. Merge deliberately
 
    - Merge only after review-quality checks, validation, and doc/test updates are complete.
-   - Default merge command:
+   - Present merge readiness and the merge command for approval.
+   - Default merge command after approval:
 
      `gh pr merge --squash --delete-branch`
 
@@ -151,8 +158,8 @@ Return a concise operator-ready summary:
 - Staged scope: paths or logical slice
 - Commit: proposed or created
 - Push: exact command
-- PR: exact `gh pr create` command and closing line
-- Merge: exact `gh pr merge` command
+- PR: exact approved title/body and `gh pr create` command
+- Merge: exact approved `gh pr merge` command
 - Cleanup: exact post-merge commands
 - SESSION.md notes: short summary
 

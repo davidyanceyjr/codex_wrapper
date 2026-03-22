@@ -24,7 +24,8 @@ Procedure
 3. Confirm the collaboration split:
 
    - the human owns direction, scope approval, and decision-making
-   - the AI owns bounded execution, status reporting, and explicit escalation
+   - the AI owns bounded execution, status reporting, explicit escalation, and
+     repetitive git/GitHub commands after approval
 
 4. Implement only the controlled behavior for the current slice.
 5. If an uncontrolled decision appears, stop and escalate it clearly instead of

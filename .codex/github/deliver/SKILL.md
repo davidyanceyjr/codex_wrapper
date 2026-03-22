@@ -7,13 +7,18 @@ Deliver the current slice from staged patch to reviewable pull request.
 Procedure
 ---------
 1. Verify branch and staged scope readiness.
-2. Commit with issue linkage.
-3. Push the branch.
-4. Create the PR using the prepared proposal.
-5. Update `SESSION.md` as operational state.
-6. End with:
+2. Confirm the commit message, PR title, and PR body were explicitly approved.
+3. Perform the mechanical delivery steps:
+
+   - `git add` as needed
+   - `git commit`
+   - `git push`
+   - `gh pr create`
+
+4. Update `SESSION.md` as operational state.
+5. End with:
 
    - a short summary of what `deliver` completed
    - `Next Skill: merge`
-   - a short explanation that `merge` will merge the review-ready PR once the
-     human is satisfied with the review state
+   - a short explanation that `merge` will request final merge approval and
+     then perform the merge if approved
