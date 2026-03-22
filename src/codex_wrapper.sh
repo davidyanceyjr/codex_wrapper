@@ -68,45 +68,57 @@ EOF
 		while (($#)); do
 			arg=$1
 			case "$arg" in
-				--help|-h|--wrapper-help|--help-wrapper)
-					show_help=1
-					shift
-					;;
-				--ro)
-					(($# >= 2)) || { printf 'codex: missing argument for --ro\n' >&2; return 2; }
-					ro_paths+=("$2")
-					shift 2
-					;;
-				--ro=*)
-					[[ -n ${arg#--ro=} ]] || { printf 'codex: empty argument for --ro\n' >&2; return 2; }
-					ro_paths+=("${arg#--ro=}")
-					shift
-					;;
-				--rw)
-					(($# >= 2)) || { printf 'codex: missing argument for --rw\n' >&2; return 2; }
-					rw_paths+=("$2")
-					shift 2
-					;;
-				--rw=*)
-					[[ -n ${arg#--rw=} ]] || { printf 'codex: empty argument for --rw\n' >&2; return 2; }
-					rw_paths+=("${arg#--rw=}")
-					shift
-					;;
-				--)
-					shift
-					passthrough_args+=("$@")
-					break
-					;;
-				*)
-					app_args+=("$1")
-					shift
-					;;
+			--help | -h | --wrapper-help | --help-wrapper)
+				show_help=1
+				shift
+				;;
+			--ro)
+				(($# >= 2)) || {
+					printf 'codex: missing argument for --ro\n' >&2
+					return 2
+				}
+				ro_paths+=("$2")
+				shift 2
+				;;
+			--ro=*)
+				[[ -n ${arg#--ro=} ]] || {
+					printf 'codex: empty argument for --ro\n' >&2
+					return 2
+				}
+				ro_paths+=("${arg#--ro=}")
+				shift
+				;;
+			--rw)
+				(($# >= 2)) || {
+					printf 'codex: missing argument for --rw\n' >&2
+					return 2
+				}
+				rw_paths+=("$2")
+				shift 2
+				;;
+			--rw=*)
+				[[ -n ${arg#--rw=} ]] || {
+					printf 'codex: empty argument for --rw\n' >&2
+					return 2
+				}
+				rw_paths+=("${arg#--rw=}")
+				shift
+				;;
+			--)
+				shift
+				passthrough_args+=("$@")
+				break
+				;;
+			*)
+				app_args+=("$1")
+				shift
+				;;
 			esac
 		done
 	}
 
 	_exists() { [[ -e $1 || -S $1 ]]; }
-	_canon()  { realpath -e -- "$1" 2>/dev/null; }
+	_canon() { realpath -e -- "$1" 2>/dev/null; }
 
 	_normalize_paths() {
 		local path resolved
@@ -158,15 +170,14 @@ EOF
 				continue
 			fi
 			case "$arg" in
-				--dangerously-bypass-approvals-and-sandbox|--yolo|--full-auto) ;;
-				--ask-for-approval|-a|--sandbox|-s|--add-dir|--cd|-c)
-					skip=1
-					;;
-				--ask-for-approval=*|-a=*|--sandbox=*|-s=*|--add-dir=*|--cd=*|-c=*)
-					;;
-				*)
-					printf '%s\0' "$arg"
-					;;
+			--dangerously-bypass-approvals-and-sandbox | --yolo | --full-auto) ;;
+			--ask-for-approval | -a | --sandbox | -s | --add-dir | --cd | -c)
+				skip=1
+				;;
+			--ask-for-approval=* | -a=* | --sandbox=* | -s=* | --add-dir=* | --cd=* | -c=*) ;;
+			*)
+				printf '%s\0' "$arg"
+				;;
 			esac
 		done
 	}
@@ -199,6 +210,7 @@ EOF
 		local -a run=(
 			systemd-run
 			--user
+			--quiet
 			"--unit=$unit"
 			--same-dir
 			--wait
@@ -290,7 +302,10 @@ EOF
 	}
 
 	_parse "$@" || return
-	((show_help)) && { _help; return 0; }
+	((show_help)) && {
+		_help
+		return 0
+	}
 	_normalize_paths || return
 	_select_codex_prog
 
