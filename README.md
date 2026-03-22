@@ -51,13 +51,13 @@ You grant access explicitly per run:
 #### Read-only access
 
 ```
-codex --ro /path/to/dir
+codex --ro /path/to/dir /another/path
 ```
 
 #### Read-write access
 
 ```
-codex --rw /path/to/dir
+codex --rw /path/to/dir /another/path
 ```
 
 These are translated into systemd bind mounts.
@@ -153,22 +153,22 @@ codex [wrapper options] [--] [codex arguments...]
 
 ## Wrapper Options
 
-### `--ro PATH`
+### `--ro PATH...`
 
-Mount a path read-only inside the sandbox.
+Mount one or more paths read-only inside the sandbox.
 
 ```
-codex --ro ~/.ssh
+codex --ro ~/.ssh ~/.config/git
 ```
 
 ---
 
-### `--rw PATH`
+### `--rw PATH...`
 
-Mount a path read-write inside the sandbox.
+Mount one or more paths read-write inside the sandbox.
 
 ```
-codex --rw ~/.local
+codex --rw ~/.local ~/src
 ```
 
 ---
@@ -181,6 +181,13 @@ Everything after is passed directly to Codex without wrapper filtering.
 
 ```
 codex --rw ~/.local -- --model gpt-5-codex
+```
+
+You can also pass multiple paths after a single flag:
+
+```
+codex --rw ~/.local ~/src ~/worktrees
+codex --ro ~/.ssh ~/.config/git
 ```
 
 ---

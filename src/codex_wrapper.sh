@@ -39,10 +39,10 @@ USAGE
   codex [wrapper options] [--] [codex arguments...]
 
 WRAPPER OPTIONS
-  --ro PATH     add read-only bind for sandboxed run
-  --ro=PATH     same as --ro PATH
-  --rw PATH     add read-write bind for sandboxed run
-  --rw=PATH     same as --rw PATH
+  --ro PATH...  add one or more read-only binds for sandboxed run
+  --ro=PATH     add one read-only bind for sandboxed run
+  --rw PATH...  add one or more read-write binds for sandboxed run
+  --rw=PATH     add one read-write bind for sandboxed run
   --help, -h    show this help
   --            stop wrapper parsing; forward rest to codex
 
@@ -64,7 +64,33 @@ EOF
 	}
 
 	_parse() {
+		_collect_paths() {
+			local mode=$1
+			local added=0
+			shift
+			while (($#)); do
+				case "$1" in
+				-- | --ro | --rw | --ro=* | --rw=* | --help | -h | --wrapper-help | --help-wrapper)
+					break
+					;;
+				esac
+				if [[ $mode == ro ]]; then
+					ro_paths+=("$1")
+				else
+					rw_paths+=("$1")
+				fi
+				added=1
+				shift
+			done
+			((added)) || {
+				printf 'codex: missing argument for --%s\n' "$mode" >&2
+				return 2
+			}
+			printf '%s\n' "$#"
+		}
+
 		local arg
+		local remaining
 		while (($#)); do
 			arg=$1
 			case "$arg" in
@@ -73,12 +99,9 @@ EOF
 				shift
 				;;
 			--ro)
-				(($# >= 2)) || {
-					printf 'codex: missing argument for --ro\n' >&2
-					return 2
-				}
-				ro_paths+=("$2")
-				shift 2
+				shift
+				remaining=$(_collect_paths ro "$@") || return
+				shift $(($# - remaining))
 				;;
 			--ro=*)
 				[[ -n ${arg#--ro=} ]] || {
@@ -89,12 +112,9 @@ EOF
 				shift
 				;;
 			--rw)
-				(($# >= 2)) || {
-					printf 'codex: missing argument for --rw\n' >&2
-					return 2
-				}
-				rw_paths+=("$2")
-				shift 2
+				shift
+				remaining=$(_collect_paths rw "$@") || return
+				shift $(($# - remaining))
 				;;
 			--rw=*)
 				[[ -n ${arg#--rw=} ]] || {
