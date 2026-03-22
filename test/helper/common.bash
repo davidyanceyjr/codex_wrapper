@@ -8,6 +8,7 @@ setup_test_env() {
   export TEST_LOG_DIR="$TEST_ROOT/log"
   export TEST_PATH="$BATS_TEST_DIRNAME/stubs:$PATH"
   export WRAPPER_PATH="$BATS_TEST_DIRNAME/../src/codex_wrapper.sh"
+  export INSTALLER_PATH="$BATS_TEST_DIRNAME/../install.sh"
   export WRAPPER_RUNNER="$BATS_TEST_DIRNAME/helper/run_wrapper.sh"
   export STUB_SYSTEMD_RUN_EXIT=0
   export STUB_SYSTEMD_RUN_INVOKE_COMMAND=0
@@ -81,6 +82,31 @@ run_wrapper_tty() {
     CODEX_WRAPPER_REAL_CODEX="$BATS_TEST_DIRNAME/stubs/codex" \
     "$WRAPPER_RUNNER" "$@")"
   run script -qefc "$cmd" /dev/null
+}
+
+run_installer() {
+  run env \
+    HOME="$TEST_HOME" \
+    PATH="/usr/bin:/bin" \
+    "$INSTALLER_PATH" "$@"
+}
+
+run_installer_with_input() {
+  local input=$1
+  shift
+  local cmd=
+  cmd="$(quote_cmd env \
+    HOME="$TEST_HOME" \
+    PATH="/usr/bin:/bin" \
+    "$INSTALLER_PATH" "$@")"
+  run bash -lc "printf '%s' $(printf '%q' "$input") | script -qefc $(printf '%q' "$cmd") /dev/null"
+}
+
+run_uninstall() {
+  run env \
+    HOME="$TEST_HOME" \
+    PATH="/usr/bin:/bin" \
+    "$TEST_HOME/.local/share/codex-wrapper/uninstall.sh"
 }
 
 quote_cmd() {
