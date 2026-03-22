@@ -18,5 +18,7 @@ Procedure
    - validation / conformance checks
    - references
 
-4. Provide or run the `gh issue create` command.
-5. Recommend `branch` as the next skill once the issue exists.
+4. Present the exact issue title/body for approval.
+5. After explicit approval, create the issue with `gh issue create` or show the
+   exact command that will be run.
+6. Recommend `branch` as the next skill once the issue exists.

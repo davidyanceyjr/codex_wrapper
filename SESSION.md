@@ -1,15 +1,15 @@
 # SESSION
 
 Session Start: 2026-03-22
-Session End: none
-Session Status: active
+Session End: 2026-03-22
+Session Status: complete
 
-Branch: 3-add-user-installer
-Active Issue: 3
-Stage: review
-Next Skill: propose
+Branch: main
+Active Issue: none
+Stage: finish
+Next Skill: start
 
-Repository State: dirty
+Repository State: clean
 Validation Status: passing
 
 Source Of Truth:
@@ -21,13 +21,13 @@ Source Of Truth:
 - .codex/docs/session_template.md
 
 Current Goal:
-Add an interactive user-space installer and uninstall flow for the wrapper with opt-in `~/.bashrc` integration.
+Session closed after merging the installer slice and updating the repository workflow contract.
 
 Last Action:
-Created issue `#3`, moved the installer work onto `3-add-user-installer`, fixed installer review findings, and reran validation.
+Updated the workflow docs and step-specific skill files to use approval checkpoints with AI-executed mechanics after approval.
 
 Next Action:
-Prepare the reviewed installer slice for proposal and delivery.
+Start a new session from `main`, restore context from this file, and follow the updated approval-based workflow.
 
 Open Decisions:
 - none
@@ -36,29 +36,27 @@ Blockers:
 - none
 
 Files In Play:
-- README.md
 - SESSION.md
-- install.sh
-- test/helper/common.bash
-- test/install.bats
 
 Validation Summary:
-- installer adds user-space install, uninstall, warning/confirmation flow, and managed `~/.bashrc` integration
-- uninstall restores any preexisting user `~/.local/bin/codex`
-- reinstall refreshes the managed `~/.bashrc` block instead of leaving stale managed content
-- test suite and shellcheck are passing
+- PR `#4` merged to `main`
+- local branch cleanup is complete
+- local `main` matches remote `main`
+- workflow docs and relevant skill files now align on approval checkpoints and AI-executed mechanics after approval
 
 Validation / Commands To Rerun:
 - git status --short
 - git branch --show-current
-- bats --show-output-of-passing-tests test/install.bats
-- ./test/run-tests.sh
-- shellcheck install.sh src/codex_wrapper.sh
+- gh pr view 4 --json state,mergedAt,mergeCommit,url
+- git pull --ff-only origin main
+- git remote prune origin
+- rg -n "approval checkpoint|after explicit approval|gh pr merge|gh pr create" .codex AGENTS.md
 
 Operational Notes:
-- issue tracker: `#3 Add interactive user-space installer and uninstall flow`
-- branch naming is now aligned with the issue-mapped workflow
-- worktree remains dirty because the installer slice is not yet committed
+- merged issue: `#3 Add interactive user-space installer and uninstall flow`
+- merged PR: `#4`
+- merge commit: `f407a903d00ee93ebf58845570fb1528b30a3287`
+- workflow contract now pauses the human at approval checkpoints rather than routine terminal commands
 
 Local Exceptions:
 - none

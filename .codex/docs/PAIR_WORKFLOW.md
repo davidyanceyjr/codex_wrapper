@@ -13,19 +13,17 @@ concept -> spec -> issue -> branch -> plan -> pair -> test -> debug -> review ->
 
 ## Human owns
 
-- `gh issue create`
-- `git switch -c ...`
 - problem framing
 - scope approval
 - final choice on uncontrolled implementation decisions that affect solution
   shape, interfaces, architecture, workflow, compatibility, security,
   persistence, performance, or maintenance
 - review of whether the active slice is still the right slice
-- `git commit`
-- `git push`
-- `gh pr create`
-- `gh pr merge`
-- local cleanup
+- approval of issue wording
+- approval of branch intent
+- approval of commit message
+- approval of PR title and PR body
+- approval of merge action
 
 ## AI owns
 
@@ -37,8 +35,39 @@ concept -> spec -> issue -> branch -> plan -> pair -> test -> debug -> review ->
 - test generation
 - patch review
 - PR drafting
-- cleanup checklist
+- cleanup execution and checklist
 - decision briefs for uncontrolled implementation choices
+- repetitive git and GitHub commands after explicit human approval:
+  - `gh issue create`
+  - `git switch -c ...`
+  - `git add`
+  - `git commit`
+  - `git push`
+  - `gh pr create`
+  - `gh pr merge`
+  - post-merge cleanup
+
+## Approval Checkpoints
+
+The main human pause points should happen at approval checkpoints rather than
+at routine command execution.
+
+At an approval checkpoint, the AI should:
+- make the requested approval explicit
+- provide a recommendation
+- show the exact text or action to be used
+- pause for human approval before continuing
+
+Approval checkpoints normally include:
+- issue wording
+- branch creation intent when needed
+- uncontrolled implementation decisions
+- commit message
+- PR title and PR body
+- merge action
+
+If the terminal environment supports it, the AI may also emit an attention cue
+such as a terminal bell when an approval checkpoint is reached.
 
 ## Collaboration Contract For `pair`
 
@@ -62,6 +91,9 @@ At the end of a `pair` slice, the AI should make the handoff explicit:
 - what remains open
 - the next skill
 - what that next skill will do
+
+When the next step includes an approval checkpoint, the handoff should also
+state exactly what approval will be requested next.
 
 This keeps the human in control of the transition instead of forcing them to
 guess the meaning of the next step name.
