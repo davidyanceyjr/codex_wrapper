@@ -12,3 +12,5 @@ Procedure
 4. Do not replace the issue/spec/design with session notes.
 5. When the repository is in post-merge cleanup on `main`, it is valid for `SESSION.md` to remain intentionally unstaged as a human review buffer while the rest of the working tree is clean.
 6. If `SESSION.md` is intentionally left unstaged, state that explicitly so the next session does not treat it as accidental dirt.
+7. When an approval checkpoint is pending, record exactly what approval is
+   needed next so the next session can resume at the correct pause point.
