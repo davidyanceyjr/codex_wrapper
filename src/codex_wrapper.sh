@@ -312,10 +312,26 @@ __codex_wrapper_cleanup() {
 }
 
 __codex_wrapper_should_fallback() {
+	local output
 	local -a props=()
-	mapfile -t props < <(__codex_wrapper_props "$1")
-	__codex_wrapper_log "unit result=${props[0]:-} code=${props[1]:-} status=${props[2]:-} pid=${props[3]:-0}"
-	[[ ${props[3]:-0} == 0 ]]
+
+	output=$(__codex_wrapper_props "$1") || {
+		__codex_wrapper_log "unit inspection failed; not falling back"
+		return 1
+	}
+
+	mapfile -t props <<<"$output"
+	if ((${#props[@]} < 4)); then
+		__codex_wrapper_log "unit inspection incomplete; not falling back"
+		return 1
+	fi
+	if [[ ! ${props[3]} =~ ^[0-9]+$ ]]; then
+		__codex_wrapper_log "unit inspection returned invalid pid=${props[3]@Q}; not falling back"
+		return 1
+	fi
+
+	__codex_wrapper_log "unit result=${props[0]} code=${props[1]} status=${props[2]} pid=${props[3]}"
+	[[ ${props[3]} == 0 ]]
 }
 
 codex() {
