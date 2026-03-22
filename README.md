@@ -23,6 +23,114 @@ It provides:
 
 ---
 
+## Operating Modes
+
+The wrapper has three practical modes of operation.
+
+### 1. Primary Mode
+
+This is the normal and preferred path.
+
+The wrapper starts `codex` inside a `systemd-run --user` sandbox, then gives the native CLI:
+
+```
+--dangerously-bypass-approvals-and-sandbox
+```
+
+That is intentional. In this mode, the outer `systemd` sandbox is the main safety boundary, so Codex itself runs wide open inside that boundary.
+
+Default access in primary mode:
+
+* current `PWD` is mounted read-write
+* `~/.codex` is mounted read-write
+* Git / GitHub configuration is mounted read-only when present:
+  * `~/.config/gh`
+  * `~/.gitconfig`
+  * `~/.config/git`
+* `SSH_AUTH_SOCK` is mounted read-only when an SSH agent is available
+* network access is available
+
+Important: the wrapper does **not** automatically mount `~/.ssh`. If you need SSH config files or keys inside the sandbox, add them explicitly:
+
+```
+codex --ro ~/.ssh
+```
+
+Use primary mode for normal repo work where you want Codex to move quickly but stay confined to the workspace and any paths you explicitly bind.
+
+### 2. Fallback Mode
+
+If `systemd-run` fails before Codex actually starts, the wrapper retries without the outer sandbox using a tighter native Codex configuration:
+
+```
+--ask-for-approval on-request
+--sandbox workspace-write
+-c sandbox_workspace_write.network_access=true
+--cd <launch-directory>
+```
+
+This mode is more conservative:
+
+* Codex is rooted at the launch directory
+* native workspace-write restrictions apply
+* approval is required when Codex decides it should escalate
+* the wrapper does not carry wrapper `--ro` / `--rw` paths into fallback
+
+This is the recovery path when `systemd --user` is unavailable or fails to launch the service.
+
+### 3. Custom Mode
+
+Custom mode is active whenever you pass native Codex CLI arguments after `--`:
+
+```
+codex [wrapper options] -- [native codex args...]
+```
+
+Example:
+
+```
+codex --ro /some/reference/path -- --model gpt-5.4 --search
+```
+
+Use custom mode when you want the wrapper to manage the outer execution boundary while still forwarding native Codex features such as:
+
+* model selection
+* config profiles
+* web search
+* structured output
+* review subcommands
+* ephemeral sessions
+
+Examples:
+
+```
+codex -- --model gpt-5.4
+```
+
+```
+codex -- --profile work
+```
+
+```
+codex -- --search
+```
+
+```
+codex -- --ephemeral --json
+```
+
+```
+codex -- --output-last-message /tmp/codex.out
+```
+
+```
+codex -- --help
+```
+
+Treat policy flags specially. The wrapper already manages sandbox and approval behavior in primary and fallback modes, so passthrough is most useful for native workflow flags rather than trying to redefine the wrapper's safety model.
+
+---
+
 ## Key Features
 
 ### 1. Systemd Sandbox Execution
@@ -125,10 +233,16 @@ codex --ask-for-approval on-request --sandbox workspace-write
 Additionally:
 
 ```
---add-dir <rw-path>
+--cd <launch-directory>
 ```
 
-is applied automatically.
+and:
+
+```
+-c sandbox_workspace_write.network_access=true
+```
+
+are applied automatically.
 
 ---
 
@@ -309,6 +423,92 @@ Avoid patterns where an intermediate command consumes or replaces upstream `stdi
 
 ---
 
+### Daily repo work in primary mode
+
+```
+codex
+```
+
+Best for normal development inside the current repository. Codex can read, edit, run commands, use Git metadata, and reach the network, but only within the outer `systemd` sandbox.
+
+### Daily repo work with SSH config available
+
+```
+codex --ro ~/.ssh
+```
+
+Use this when the agent needs actual SSH configuration or key material in addition to the default forwarded SSH agent socket.
+
+### Review the current diff non-interactively
+
+```
+{ printf 'Review this patch for bugs, risks, and missing tests.\n\n'; git diff; } | codex
+```
+
+Good for a one-shot review prompt in CI, pre-commit workflows, or local shell pipelines.
+
+### Use native web search without changing wrapper behavior
+
+```
+codex -- --search
+```
+
+Useful when the task needs current documentation or release information and you still want the wrapper deciding how Codex runs.
+
+### Emit structured output for automation
+
+```
+codex -- --ephemeral --json "Summarize the repository state"
+```
+
+Useful for scripts that consume Codex output programmatically.
+
+### Save the final answer to a file
+
+```
+codex -- --output-last-message /tmp/codex-last.txt "Write release notes for the staged changes"
+```
+
+Useful when another tool needs the final message as an artifact.
+
+### Use a different model or profile
+
+```
+codex -- --model gpt-5.4
+```
+
+```
+codex -- --profile work
+```
+
+Useful when you want repo-local wrapper behavior but need different native Codex defaults.
+
+### Run the native review workflow through the wrapper
+
+```
+codex -- review
+```
+
+Useful when you want Codex's non-interactive review command while still keeping the wrapper in front.
+
+### Add extra read-only reference material
+
+```
+codex --ro ~/docs ~/design-notes
+```
+
+Useful when the agent should consult external reference material without being allowed to modify it.
+
+### Add an extra writable workspace
+
+```
+codex --rw ~/scratch
+```
+
+Useful when the task needs a secondary writable area in the outer `systemd` sandbox, for example to stage generated artifacts or compare outputs.
+
+---
+
 ## Debugging
 
 Enable debug output:
@@ -328,11 +528,11 @@ This prints:
 
 ## Security Model
 
-| Layer       | Responsibility               |
-| ----------- | ---------------------------- |
-| systemd     | filesystem isolation         |
-| codex flags | execution / approval control |
-| wrapper     | orchestration                |
+| Layer       | Responsibility                                                |
+| ----------- | ------------------------------------------------------------- |
+| systemd     | primary filesystem boundary in normal operation               |
+| codex flags | native approval / sandbox behavior when fallback is in effect |
+| wrapper     | mode selection, path binding, and argument forwarding         |
 
 ---
 
