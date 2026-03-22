@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+log_dir="${STUB_LOG_DIR:?}"
+mkdir -p "$log_dir"
+log_file="$log_dir/systemd-run.args"
+: > "$log_file"
+
+for arg in "$@"; do
+  printf '%s\n' "$arg" >>"$log_file"
+done
+
+exit "${STUB_SYSTEMD_RUN_EXIT:-0}"

@@ -254,17 +254,29 @@ Clone the repository:
 git clone <repo-url>
 ```
 
-Source the wrapper:
+Install `src/codex_wrapper.sh` somewhere on your `PATH` as the wrapper binary. For example:
 
 ```
-source /path/to/codex-wrapper/src/codex_wrapper.sh
+install -m 0755 /path/to/codex-wrapper/src/codex_wrapper.sh ~/.local/bin/codex_wrapper.sh
 ```
 
-Or add to your shell config:
+Run it directly:
 
 ```
-echo 'source ~/path/to/codex-wrapper/src/codex_wrapper.sh' >> ~/.bashrc
+codex_wrapper.sh [wrapper options] [--] [codex arguments...]
 ```
+
+If you want `codex` itself to resolve to the wrapper in your shell, add a small shell function that shadows the real `codex` binary and forwards to the script:
+
+```bash
+codex() {
+	command ~/.local/bin/codex_wrapper.sh "$@"
+}
+```
+
+Add that function to your shell startup file, for example `~/.bashrc`.
+
+This keeps the wrapper implementation as a normal executable script on `PATH` while using a tiny shell function only as a command alias layer.
 
 ---
 

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+log_dir="${STUB_LOG_DIR:?}"
+mkdir -p "$log_dir"
+log_file="$log_dir/codex.args"
+: > "$log_file"
+
+for arg in "$@"; do
+  printf '%s\n' "$arg" >>"$log_file"
+done
+
+if [[ ${1:-} == "exec" && ${2:-} == "--help" ]]; then
+  printf 'Run Codex non-interactively\n'
+  exit 0
+fi
+
+if [[ ${1:-} == "--help" ]]; then
+  printf 'Codex CLI\n'
+  exit 0
+fi
+
+if printf '%s\n' "$@" | grep -Fx -- "--help" >/dev/null; then
+  printf 'Codex CLI\n'
+  exit 0
+fi
+
+printf 'stub codex invoked\n'

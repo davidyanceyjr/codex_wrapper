@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ ${1:-} == "--user" && ${2:-} == "show" ]]; then
+  printf '%s\n' "${STUB_SYSTEMCTL_RESULT:-exit-code}"
+  printf '%s\n' "${STUB_SYSTEMCTL_EXEC_CODE:-1}"
+  printf '%s\n' "${STUB_SYSTEMCTL_EXEC_STATUS:-1}"
+  printf '%s\n' "${STUB_SYSTEMCTL_EXEC_PID:-0}"
+  exit 0
+fi
+
+if [[ ${1:-} == "--user" && ${2:-} == "reset-failed" ]]; then
+  exit 0
+fi
+
+exit 0
