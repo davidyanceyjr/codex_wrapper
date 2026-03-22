@@ -254,29 +254,37 @@ Clone the repository:
 git clone <repo-url>
 ```
 
-Install `src/codex_wrapper.sh` somewhere on your `PATH` as the wrapper binary. For example:
+Run the installer:
 
 ```
-install -m 0755 /path/to/codex-wrapper/src/codex_wrapper.sh ~/.local/bin/codex_wrapper.sh
+cd codex-wrapper
+./install.sh
 ```
 
-Run it directly:
+The installer:
+
+* installs the wrapper as `~/.local/bin/codex`
+* writes uninstall support under `~/.local/share/codex-wrapper/`
+* warns if `~/.local/bin` is not currently positioned to override the existing `codex`
+* can, with your permission, append a managed `codex()` override block to `~/.bashrc`
+
+If you prefer a non-interactive install:
 
 ```
-codex_wrapper.sh [wrapper options] [--] [codex arguments...]
+./install.sh --yes --bashrc yes
 ```
 
-If you want `codex` itself to resolve to the wrapper in your shell, add a small shell function that shadows the real `codex` binary and forwards to the script:
+Run the wrapper directly:
 
-```bash
-codex() {
-	command ~/.local/bin/codex_wrapper.sh "$@"
-}
+```
+codex [wrapper options] [--] [codex arguments...]
 ```
 
-Add that function to your shell startup file, for example `~/.bashrc`.
+Uninstall with:
 
-This keeps the wrapper implementation as a normal executable script on `PATH` while using a tiny shell function only as a command alias layer.
+```
+~/.local/share/codex-wrapper/uninstall.sh
+```
 
 ---
 

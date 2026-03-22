@@ -4,13 +4,13 @@ Session Start: 2026-03-22
 Session End: none
 Session Status: active
 
-Branch: main
-Active Issue: none
-Stage: plan
-Next Skill: pair
+Branch: 3-add-user-installer
+Active Issue: 3
+Stage: review
+Next Skill: propose
 
 Repository State: dirty
-Validation Status: partial
+Validation Status: passing
 
 Source Of Truth:
 - SPEC.md
@@ -21,13 +21,13 @@ Source Of Truth:
 - .codex/docs/session_template.md
 
 Current Goal:
-Establish a durable repository workflow contract with a live `SESSION.md`, a reusable session template, and aligned top-level agent guidance.
+Add an interactive user-space installer and uninstall flow for the wrapper with opt-in `~/.bashrc` integration.
 
 Last Action:
-Added `AGENTS.md`, reviewed the example session format, and split the session format into a live file plus a reusable template.
+Created issue `#3`, moved the installer work onto `3-add-user-installer`, fixed installer review findings, and reran validation.
 
 Next Action:
-Use `pair` or a follow-on documentation pass to refine any remaining workflow guidance and keep the live session state current.
+Prepare the reviewed installer slice for proposal and delivery.
 
 Open Decisions:
 - none
@@ -36,26 +36,29 @@ Blockers:
 - none
 
 Files In Play:
-- AGENTS.md
+- README.md
 - SESSION.md
-- .codex/docs/session_template.md
-- example_session_file.md
+- install.sh
+- test/helper/common.bash
+- test/install.bats
 
 Validation Summary:
-- `AGENTS.md` points agents to `SESSION.md` as the live handoff record
-- the reusable session template now lives in `.codex/docs/session_template.md`
-- the repository has uncommitted documentation changes by design
+- installer adds user-space install, uninstall, warning/confirmation flow, and managed `~/.bashrc` integration
+- uninstall restores any preexisting user `~/.local/bin/codex`
+- reinstall refreshes the managed `~/.bashrc` block instead of leaving stale managed content
+- test suite and shellcheck are passing
 
 Validation / Commands To Rerun:
 - git status --short
-- sed -n '1,220p' AGENTS.md
-- sed -n '1,220p' SESSION.md
-- sed -n '1,220p' .codex/docs/session_template.md
+- git branch --show-current
+- bats --show-output-of-passing-tests test/install.bats
+- ./test/run-tests.sh
+- shellcheck install.sh src/codex_wrapper.sh
 
 Operational Notes:
-- `SESSION.md` is the live session file in this repo
-- `.codex/docs/session_template.md` is the reusable template
-- keep the live session file short and operational rather than narrative
+- issue tracker: `#3 Add interactive user-space installer and uninstall flow`
+- branch naming is now aligned with the issue-mapped workflow
+- worktree remains dirty because the installer slice is not yet committed
 
 Local Exceptions:
 - none
