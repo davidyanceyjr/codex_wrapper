@@ -62,6 +62,7 @@ When operating in this repository:
   - `Next Skill: <name>`
   - a short explanation of what that next skill will do
 - treat human operators as owners of problem framing, scope approval, and final uncontrolled decisions
+- treat approval checkpoints as the main human pause points; after explicit approval, repetitive git and GitHub commands may be AI-executed
 - stop and escalate instead of guessing when a choice affects architecture, interfaces, workflow, compatibility, security, persistence, performance, or maintenance shape
 - keep implementation work on issue-mapped branches rather than `main`
 - treat `SKILL.md` content as the operational source for each step
@@ -71,7 +72,8 @@ When operating in this repository:
 Summarized from `.codex/docs/PAIR_WORKFLOW.md`:
 
 - the human owns direction, scope approval, and final decisions on uncontrolled changes
-- the AI owns bounded execution, status reporting, drafting support, validation guidance, and explicit escalation
+- the human also owns approval of issue text, commit message, PR title/body, and merge actions
+- the AI owns bounded execution, status reporting, drafting support, validation guidance, explicit escalation, and repetitive git/GitHub command execution after approval
 
 If a workflow or skill file conflicts with this summary, follow the more specific source document.
 

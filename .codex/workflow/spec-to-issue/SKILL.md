@@ -31,9 +31,11 @@ Procedure
    - spec references
 
 4. Draft a focused issue title and body.
-5. Provide the exact `gh issue create` command needed to create that issue.
-6. Recommend a branch slug and branch type prefix.
-7. Recommend `branch` as the next action once the issue number exists.
+5. Present the draft for human approval.
+6. After approval, provide or run the exact `gh issue create` command needed to
+   create that issue.
+7. Recommend a branch slug and branch type prefix.
+8. Recommend `branch` as the next action once the issue number exists.
 
 Output
 ------
@@ -41,7 +43,7 @@ Return:
 
 Issue Title:
 Issue Body:
-Issue Create Command:
+Approved Issue Create Command:
 Spec References:
 Recommended Branch:
 Next Skill:

@@ -26,6 +26,18 @@ At each step transition, the AI should tell you:
 That handoff is important because it gives you a chance to intervene, redirect,
 or reshape the collaboration before the workflow moves forward.
 
+The human pause points in this workflow are approval checkpoints, not routine
+terminal mechanics.
+
+When the AI reaches an approval checkpoint, it should:
+- make the needed approval explicit
+- present its recommendation
+- present the exact text or action to approve when relevant
+- pause before continuing
+
+After explicit approval, the AI may perform the repetitive terminal steps on
+the human's behalf.
+
 ## The Steps
 
 ### `start`
@@ -59,11 +71,17 @@ The issue should explain:
 - the acceptance criteria
 - the validation expected
 
+The AI should draft the issue content first. The human approves the wording.
+After approval, the AI may create the issue.
+
 ### `branch`
 
 Use `branch` to move the work onto an issue-mapped branch.
 
 Do not do implementation work on `main`.
+
+The AI should propose the branch name and intent first. After approval, the AI
+may create and switch to the branch.
 
 ### `plan`
 
@@ -120,7 +138,11 @@ This is where you check:
 
 Use `propose` to prepare the pull request proposal.
 
-This is the step where the PR title, body, and issue-closing line are drafted.
+This is the step where the commit message, PR title, PR body, and
+issue-closing line are drafted.
+
+This is an approval checkpoint. The human should review and approve or edit the
+proposed text before delivery continues.
 
 ### `deliver`
 
@@ -132,12 +154,19 @@ This step covers:
 - push
 - PR creation
 
+After the human approves the commit message and PR text, the AI may perform the
+mechanical delivery commands.
+
 ### `merge`
 
 Use `merge` when the PR is ready to be merged.
 
 This is a separate step on purpose. Cleanup should not be confused with the
 merge itself.
+
+This is also an approval checkpoint. The AI should summarize merge readiness
+and recommend the merge action. After explicit approval, the AI may perform the
+merge command and continue to cleanup.
 
 ### `cleanup`
 
@@ -166,6 +195,11 @@ without forcing the human to infer the workflow from tool names alone.
 It also leaves room for the human to interrupt, redirect, or refine the next
 slice before the AI continues.
 
+At approval checkpoints, the handoff should identify:
+- what approval is needed
+- the AI's recommendation
+- the exact text or command that will be used after approval
+
 ## How To Work With The AI
 
 The AI is an execution and process partner, not the final authority.
@@ -177,13 +211,14 @@ Use the AI to:
 - implement bounded changes
 - generate validation ideas
 - review patch scope and workflow consistency
+- perform repetitive git and GitHub commands after explicit human approval
 
 The human should retain authority over:
 - what problem is worth solving
 - whether the current slice is the right slice
 - architecture and workflow decisions
 - accepting tradeoffs
-- merging and cleanup decisions when judgment is needed
+- approval of issue text, commit message, PR title/body, and merge actions
 
 ## If You Are Unsure What To Type
 
