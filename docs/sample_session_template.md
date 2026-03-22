@@ -14,11 +14,12 @@ Repository State: clean | dirty | unknown
 Validation Status: complete | partial | pending
 
 Source Of Truth:
-- SPEC.md
-- AGENTS.md
-- .codex/INDEX.md
-- .codex/docs/HUMAN_WORKFLOW.md
-- .codex/docs/PAIR_WORKFLOW.md
+- Concept: <path-or-none>
+- Specification: <path-or-none>
+- Spec Log: <path-or-none>
+- Workflow Index: <path-or-none>
+- Human Workflow Guide: <path-or-none>
+- Additional Authority: none | <path>
 
 Current Goal:
 <one sentence describing the current bounded objective>
