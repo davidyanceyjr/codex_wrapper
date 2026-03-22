@@ -342,12 +342,13 @@ codex() {
 	__codex_wrapper_log "tty stdin=$([[ -t 0 ]] && echo 1 || echo 0) stdout=$([[ -t 1 ]] && echo 1 || echo 0) stderr=$([[ -t 2 ]] && echo 1 || echo 0)"
 	__codex_wrapper_log "unit=$unit"
 
-	if __codex_wrapper_try_sandbox "$unit"; then
+	__codex_wrapper_try_sandbox "$unit"
+	rc=$?
+	if ((rc == 0)); then
 		__codex_wrapper_cleanup "$unit"
 		return 0
 	fi
 
-	rc=$?
 	__codex_wrapper_log "sandbox rc=$rc"
 
 	if __codex_wrapper_should_fallback "$unit"; then

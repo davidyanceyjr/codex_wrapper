@@ -26,3 +26,4 @@ if printf '%s\n' "$@" | grep -Fx -- "--help" >/dev/null; then
 fi
 
 printf 'stub codex invoked\n'
+exit "${STUB_CODEX_EXIT:-0}"
