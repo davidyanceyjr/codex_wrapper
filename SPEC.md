@@ -263,17 +263,21 @@ In fallback mode, forwarded native arguments must appear after fallback policy a
 
 ### SPEC-FAIL-1
 
-If parsing fails, the wrapper must exit non-zero and must not invoke `systemd-run` or native Codex.
+If the configured native Codex executable does not exist or is not executable, the wrapper must exit non-zero and must not invoke `systemd-run`.
 
 ### SPEC-FAIL-2
 
-If path normalization fails, the wrapper must exit non-zero and must not invoke `systemd-run` or native Codex.
+If parsing fails, the wrapper must exit non-zero and must not invoke `systemd-run` or native Codex.
 
 ### SPEC-FAIL-3
 
-If primary mode fails after Codex actually started inside `systemd-run`, the wrapper must not invoke fallback mode.
+If path normalization fails, the wrapper must exit non-zero and must not invoke `systemd-run` or native Codex.
 
 ### SPEC-FAIL-4
+
+If primary mode fails after Codex actually started inside `systemd-run`, the wrapper must not invoke fallback mode.
+
+### SPEC-FAIL-5
 
 If primary mode fails before Codex started, the wrapper may invoke fallback mode once.
 

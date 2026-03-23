@@ -20,6 +20,7 @@ It provides:
 * explicit read/write path control
 * automatic interactive vs non-interactive handling
 * safe fallback when sandboxing fails
+* early failure if the configured native Codex executable is missing or not executable
 
 ---
 
