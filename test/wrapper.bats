@@ -271,6 +271,144 @@ stdin_value: <empty>"
     "$actual_value"
 }
 
+@test "missing native codex executable returns error before any sandbox launch" {
+  local missing_codex="$TEST_ROOT/missing-codex"
+  run env \
+    HOME="$TEST_HOME" \
+    PATH="$TEST_PATH" \
+    XDG_RUNTIME_DIR="$TEST_ROOT/runtime" \
+    DBUS_SESSION_BUS_ADDRESS="unix:path=$TEST_ROOT/runtime/bus" \
+    CODEX_WRAPPER_DEBUG="$CODEX_WRAPPER_DEBUG" \
+    STUB_LOG_DIR="$TEST_LOG_DIR" \
+    STUB_SYSTEMD_RUN_EXIT="$STUB_SYSTEMD_RUN_EXIT" \
+    STUB_SYSTEMD_RUN_INVOKE_COMMAND="$STUB_SYSTEMD_RUN_INVOKE_COMMAND" \
+    STUB_SYSTEMCTL_MODE="$STUB_SYSTEMCTL_MODE" \
+    STUB_SYSTEMCTL_RESULT="$STUB_SYSTEMCTL_RESULT" \
+    STUB_SYSTEMCTL_EXEC_CODE="$STUB_SYSTEMCTL_EXEC_CODE" \
+    STUB_SYSTEMCTL_EXEC_STATUS="$STUB_SYSTEMCTL_EXEC_STATUS" \
+    STUB_SYSTEMCTL_EXEC_PID="$STUB_SYSTEMCTL_EXEC_PID" \
+    STUB_CODEX_EXIT="$STUB_CODEX_EXIT" \
+    WRAPPER_TEST_WORKDIR="$TEST_WORKDIR" \
+    WRAPPER_TEST_WRAPPER="$WRAPPER_PATH" \
+    CODEX_WRAPPER_REAL_CODEX="$missing_codex" \
+    "$WRAPPER_RUNNER"
+
+  local input_value actual_value
+  input_value="argv: codex
+stdin_type: non-tty
+stdin_value: <empty>
+CODEX_WRAPPER_REAL_CODEX: $missing_codex
+spec_clause: SPEC-FAIL-1"
+  actual_value="$(printf 'status=%s\noutput=\n%s\nsystemd_run_log_exists=%s\ncodex_log_exists=%s' \
+    "$status" \
+    "$output" \
+    "$(log_file_exists "$TEST_LOG_DIR/systemd-run.args")" \
+    "$(log_file_exists "$TEST_LOG_DIR/codex.args")")"
+
+  assert_equal_report \
+    "missing native codex executable returns error before any sandbox launch" \
+    "wrapper invocation" \
+    "$input_value" \
+    "status and output record" \
+    "$(printf 'status=2\noutput=\n%s\nsystemd_run_log_exists=no\ncodex_log_exists=no' "codex: native codex executable not found: $missing_codex")" \
+    "status and output record" \
+    "$actual_value"
+}
+
+@test "non-executable native codex target returns error before any sandbox launch" {
+  local nonexec_codex="$TEST_ROOT/nonexec-codex"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$nonexec_codex"
+  chmod 644 "$nonexec_codex"
+
+  run env \
+    HOME="$TEST_HOME" \
+    PATH="$TEST_PATH" \
+    XDG_RUNTIME_DIR="$TEST_ROOT/runtime" \
+    DBUS_SESSION_BUS_ADDRESS="unix:path=$TEST_ROOT/runtime/bus" \
+    CODEX_WRAPPER_DEBUG="$CODEX_WRAPPER_DEBUG" \
+    STUB_LOG_DIR="$TEST_LOG_DIR" \
+    STUB_SYSTEMD_RUN_EXIT="$STUB_SYSTEMD_RUN_EXIT" \
+    STUB_SYSTEMD_RUN_INVOKE_COMMAND="$STUB_SYSTEMD_RUN_INVOKE_COMMAND" \
+    STUB_SYSTEMCTL_MODE="$STUB_SYSTEMCTL_MODE" \
+    STUB_SYSTEMCTL_RESULT="$STUB_SYSTEMCTL_RESULT" \
+    STUB_SYSTEMCTL_EXEC_CODE="$STUB_SYSTEMCTL_EXEC_CODE" \
+    STUB_SYSTEMCTL_EXEC_STATUS="$STUB_SYSTEMCTL_EXEC_STATUS" \
+    STUB_SYSTEMCTL_EXEC_PID="$STUB_SYSTEMCTL_EXEC_PID" \
+    STUB_CODEX_EXIT="$STUB_CODEX_EXIT" \
+    WRAPPER_TEST_WORKDIR="$TEST_WORKDIR" \
+    WRAPPER_TEST_WRAPPER="$WRAPPER_PATH" \
+    CODEX_WRAPPER_REAL_CODEX="$nonexec_codex" \
+    "$WRAPPER_RUNNER"
+
+  local input_value actual_value
+  input_value="argv: codex
+stdin_type: non-tty
+stdin_value: <empty>
+CODEX_WRAPPER_REAL_CODEX: $nonexec_codex
+spec_clause: SPEC-FAIL-1"
+  actual_value="$(printf 'status=%s\noutput=\n%s\nsystemd_run_log_exists=%s\ncodex_log_exists=%s' \
+    "$status" \
+    "$output" \
+    "$(log_file_exists "$TEST_LOG_DIR/systemd-run.args")" \
+    "$(log_file_exists "$TEST_LOG_DIR/codex.args")")"
+
+  assert_equal_report \
+    "non-executable native codex target returns error before any sandbox launch" \
+    "wrapper invocation" \
+    "$input_value" \
+    "status and output record" \
+    "$(printf 'status=2\noutput=\n%s\nsystemd_run_log_exists=no\ncodex_log_exists=no' "codex: native codex executable is not executable: $nonexec_codex")" \
+    "status and output record" \
+    "$actual_value"
+}
+
+@test "directory native codex target returns error before any sandbox launch" {
+  local codex_dir="$TEST_ROOT/codex-dir"
+  mkdir -p "$codex_dir"
+  chmod 755 "$codex_dir"
+
+  run env \
+    HOME="$TEST_HOME" \
+    PATH="$TEST_PATH" \
+    XDG_RUNTIME_DIR="$TEST_ROOT/runtime" \
+    DBUS_SESSION_BUS_ADDRESS="unix:path=$TEST_ROOT/runtime/bus" \
+    CODEX_WRAPPER_DEBUG="$CODEX_WRAPPER_DEBUG" \
+    STUB_LOG_DIR="$TEST_LOG_DIR" \
+    STUB_SYSTEMD_RUN_EXIT="$STUB_SYSTEMD_RUN_EXIT" \
+    STUB_SYSTEMD_RUN_INVOKE_COMMAND="$STUB_SYSTEMD_RUN_INVOKE_COMMAND" \
+    STUB_SYSTEMCTL_MODE="$STUB_SYSTEMCTL_MODE" \
+    STUB_SYSTEMCTL_RESULT="$STUB_SYSTEMCTL_RESULT" \
+    STUB_SYSTEMCTL_EXEC_CODE="$STUB_SYSTEMCTL_EXEC_CODE" \
+    STUB_SYSTEMCTL_EXEC_STATUS="$STUB_SYSTEMCTL_EXEC_STATUS" \
+    STUB_SYSTEMCTL_EXEC_PID="$STUB_SYSTEMCTL_EXEC_PID" \
+    STUB_CODEX_EXIT="$STUB_CODEX_EXIT" \
+    WRAPPER_TEST_WORKDIR="$TEST_WORKDIR" \
+    WRAPPER_TEST_WRAPPER="$WRAPPER_PATH" \
+    CODEX_WRAPPER_REAL_CODEX="$codex_dir" \
+    "$WRAPPER_RUNNER"
+
+  local input_value actual_value
+  input_value="argv: codex
+stdin_type: non-tty
+stdin_value: <empty>
+CODEX_WRAPPER_REAL_CODEX: $codex_dir
+spec_clause: SPEC-FAIL-1"
+  actual_value="$(printf 'status=%s\noutput=\n%s\nsystemd_run_log_exists=%s\ncodex_log_exists=%s' \
+    "$status" \
+    "$output" \
+    "$(log_file_exists "$TEST_LOG_DIR/systemd-run.args")" \
+    "$(log_file_exists "$TEST_LOG_DIR/codex.args")")"
+
+  assert_equal_report \
+    "directory native codex target returns error before any sandbox launch" \
+    "wrapper invocation" \
+    "$input_value" \
+    "status and output record" \
+    "$(printf 'status=2\noutput=\n%s\nsystemd_run_log_exists=no\ncodex_log_exists=no' "codex: native codex executable is not executable: $codex_dir")" \
+    "status and output record" \
+    "$actual_value"
+}
+
 @test "fallback mode constructs native workspace-write argv when systemd-run fails before launch" {
   export STUB_SYSTEMD_RUN_EXIT=1
   export STUB_SYSTEMCTL_EXEC_PID=0

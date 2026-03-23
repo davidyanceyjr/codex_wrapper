@@ -169,6 +169,17 @@ __codex_wrapper_normalize_paths() {
 	ro_paths=("${new_ro[@]}")
 }
 
+__codex_wrapper_require_real_codex() {
+	if [[ ! -e $real_codex ]]; then
+		printf 'codex: native codex executable not found: %s\n' "$real_codex" >&2
+		return 2
+	fi
+	if [[ ! -f $real_codex || ! -x $real_codex ]]; then
+		printf 'codex: native codex executable is not executable: %s\n' "$real_codex" >&2
+		return 2
+	fi
+}
+
 __codex_wrapper_select_codex_prog() {
 	codex_prog=("$real_codex")
 	if [[ ! -t 0 || ! -t 1 ]]; then
@@ -351,6 +362,7 @@ codex() {
 		return 0
 	}
 	__codex_wrapper_normalize_paths || return
+	__codex_wrapper_require_real_codex || return
 	__codex_wrapper_select_codex_prog
 
 	local unit rc
