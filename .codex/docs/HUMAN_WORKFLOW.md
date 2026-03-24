@@ -80,6 +80,9 @@ Use `branch` to move the work onto an issue-mapped branch.
 
 Do not do implementation work on `main`.
 
+Exception:
+- docs-only workflow-policy maintenance that does not affect runtime behavior may be implemented, committed, and pushed on `main`
+
 The AI should propose the branch name and intent first. After approval, the AI
 may create and switch to the branch.
 
@@ -90,6 +93,7 @@ Use `plan` to break the issue into the smallest meaningful slice.
 This step decides:
 - what will be changed now
 - what files are in scope
+- which subagent lane owns each part of the slice
 - what validation closes the slice
 - whether any human decision is still needed
 
@@ -99,6 +103,16 @@ Use `pair` when the human and AI are actively working the implementation
 slice together.
 
 This is the main collaboration step.
+
+When useful, `pair` may also assign bounded subagent lanes:
+- `docs` for documentation and templates
+- `src` for implementation behavior
+- `test` for validation assets
+- `debug` for repro, triage, and root-cause isolation
+
+These lanes are execution helpers, not separate workflows. The human still owns
+direction and approvals. The AI should only use multiple lanes when ownership
+is clear and the slice remains bounded.
 
 The human should focus on:
 - goals
@@ -123,6 +137,22 @@ Use `test` to determine or generate the minimum validation needed.
 
 Not every slice needs executable tests. Some workflow or documentation slices
 use review-based validation instead.
+
+If validation work is substantial, the AI may treat `test` as its own lane. If
+failures are not yet understood, move into the `debug` lane before widening the
+implementation slice.
+
+## Subagent Lanes
+
+For solo-engineering pair sessions, use these standard lane names when work is
+split across bounded parallel tasks:
+
+- `docs`
+- `src`
+- `test`
+- `debug`
+
+Plans, pair handoffs, and `SESSION.md` should use these names consistently.
 
 ### `review`
 

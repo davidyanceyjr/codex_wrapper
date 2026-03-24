@@ -9,6 +9,7 @@ Active Issue: none | #<number>
 Stage: concept | specification | issue preparation | branch setup | implementation planning | implementation | verification | review | delivery preparation | cleanup
 Workflow Step: start | spec | issue | branch | plan | pair | test | review | propose | deliver | merge | cleanup | finish
 Next Skill: start | spec | issue | branch | plan | pair | test | review | propose | deliver | merge | cleanup | finish
+Active Lanes: none | docs | src | test | debug | <comma-separated bounded set>
 
 Repository State: clean | dirty | unknown
 Validation Status: complete | partial | pending

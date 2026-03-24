@@ -9,7 +9,7 @@ For a human-oriented overview of the whole workflow, read
 
 Canonical lifecycle:
 
-concept -> spec -> issue -> branch -> plan -> pair -> test -> debug -> review -> propose -> deliver -> merge -> cleanup -> finish
+concept -> spec -> issue -> branch -> plan -> pair -> test -> review -> propose -> deliver -> merge -> cleanup -> finish
 
 ## Human owns
 
@@ -82,6 +82,23 @@ During `pair`, the human and AI should divide work this way:
 - If an uncontrolled decision appears, the AI stops and escalates instead of
   improvising.
 
+When the slice is large enough to benefit from parallel bounded work, the AI
+may assign explicit subagent lanes:
+- `docs`
+- `src`
+- `test`
+- `debug`
+
+Lane use does not change ownership:
+- the human still owns scope, approvals, and uncontrolled decisions
+- the AI still owns bounded execution and status reporting
+
+Lane use should stay disciplined:
+- each lane should have a clear owner and a narrow file or task boundary
+- `docs`, `src`, and `test` lanes should prefer disjoint writes
+- the `debug` lane may inspect broadly, but should not widen implementation scope without approval
+- if lane boundaries become unclear, collapse back to a single `pair` slice and escalate
+
 The intent is not for the human to micromanage commands.
 The intent is for the human to control direction while the AI carries the
 bounded implementation work.
@@ -108,7 +125,7 @@ guess the meaning of the next step name.
 6. `pair`
 7. if an implementation choice is open, stop and present a decision brief
 8. `test`
-9. debug skills as needed
+9. debug lane or debug skills as needed
 10. `review`
 11. `propose`
 12. `deliver`
@@ -121,8 +138,18 @@ guess the meaning of the next step name.
 - never implement on `main`
 - no implementation branch without an issue number
 - no implementation without a tracked issue unless explicitly overridden
+- docs-only workflow-policy maintenance that does not affect runtime behavior may be implemented, committed, and pushed on `main`
 - `SESSION.md` must be updated at session start and end
 - implement in small slices, then verify before widening scope
 - if behavior is not already controlled, stop and escalate instead of guessing
 - every PR must include `Fixes #<issue>` or equivalent
 - after merge, delete local branch and prune stale remote refs
+
+## Lane Routing
+
+Use the standard lane names consistently in plans and handoffs:
+
+- `docs`: documentation, examples, templates, workflow text
+- `src`: implementation behavior under `src/`
+- `test`: validation assets and harness work under `test/`
+- `debug`: repro, triage, instrumentation, and root-cause isolation

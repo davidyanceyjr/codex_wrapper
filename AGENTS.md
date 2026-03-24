@@ -2,6 +2,9 @@
 
 Repository-level guidance for agents working in this project.
 
+This file applies repository-wide unless a deeper `AGENTS.md` in a subdirectory
+overrides or extends it for files under that subtree.
+
 ## Purpose
 
 This file is a top-level entrypoint, not the full workflow definition.
@@ -51,6 +54,32 @@ workflow step. It should not become a long narrative log.
 Use `.codex/docs/session_template.md` as the reusable template when initializing or
 restructuring the live session file.
 
+## Subagent Lanes
+
+When a slice benefits from parallel bounded work, use these standard subagent
+lanes:
+
+- `docs`: human-facing documentation, examples, templates, and workflow text
+- `src`: implementation behavior under `src/`
+- `test`: validation assets and harness changes under `test/`
+- `debug`: reproduction, triage, instrumentation, and root-cause isolation
+
+Use these lane names consistently in plans, pair handoffs, and session state.
+
+Only split work across lanes when:
+
+- ownership is clear
+- file scope is disjoint or coordination is explicit
+- the human-approved slice is still bounded
+- no uncontrolled architectural or workflow decision is being delegated
+
+When a lane is active, route it by content first:
+
+- `docs` follows `docs/AGENTS.md` when work lands under `docs/`
+- `src` follows `src/AGENTS.md` and `SPEC.md`
+- `test` follows `test/AGENTS.md`
+- `debug` follows this file plus the relevant `.codex/debug/**/SKILL.md`
+
 ## Agent Expectations
 
 When operating in this repository:
@@ -65,7 +94,28 @@ When operating in this repository:
 - treat approval checkpoints as the main human pause points; after explicit approval, repetitive git and GitHub commands may be AI-executed
 - stop and escalate instead of guessing when a choice affects architecture, interfaces, workflow, compatibility, security, persistence, performance, or maintenance shape
 - keep implementation work on issue-mapped branches rather than `main`
+- docs-only workflow-policy maintenance may be implemented, committed, and pushed on `main` when the change does not affect runtime behavior
 - treat `SKILL.md` content as the operational source for each step
+
+## Subtree Routing
+
+When work is concentrated in a specific subtree, prefer the nearest
+`AGENTS.md` for local operating rules while still honoring this top-level file
+for repository-wide workflow behavior.
+
+Route work by the context of the content first, then by directory:
+
+- implementation code or runtime behavior: follow `src/AGENTS.md` and `SPEC.md`
+- help, reference, examples, or operator-facing walkthroughs: follow `docs/AGENTS.md`
+- validation assets and harness behavior: follow `test/AGENTS.md`
+- workflow policy, collaboration rules, and session mechanics: follow this file plus `.codex/**` sources of truth
+- mixed changes: apply the stricter rule set for each touched artifact and stop in `spec` if the content categories conflict
+
+Current subtree-specific guidance files:
+
+- `docs/AGENTS.md`
+- `src/AGENTS.md`
+- `test/AGENTS.md`
 
 ## Human And AI Split
 

@@ -12,6 +12,7 @@ Procedure
 
    - goal
    - files to change
+   - owning lane: `docs`, `src`, `test`, or `debug` when useful
    - validation needed
    - likely commit boundary
    - any open decision

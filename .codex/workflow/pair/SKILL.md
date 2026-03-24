@@ -17,6 +17,7 @@ Procedure
 2. Make explicit:
 
    - what the AI will do now
+   - which lane owns the work: `docs`, `src`, `test`, or `debug` when useful
    - what the human must decide, if anything
    - what validation closes the slice
    - what conditions would cause the AI to stop and escalate
