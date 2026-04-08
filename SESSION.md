@@ -1,14 +1,14 @@
 # SESSION
 
 Session Start: 2026-04-08 10:41 CDT
-Session End: in-progress
+Session End: 2026-04-08 11:08 CDT
 Session Status: active
 
 Branch: main
 Active Issue: none
 Stage: review
-Workflow Step: test
-Next Skill: review
+Workflow Step: review
+Next Skill: propose
 Active Lanes: src, test, docs
 
 Repository State: modified
@@ -22,20 +22,20 @@ Source Of Truth:
 - docs/AGENTS.md
 
 Current Goal:
-Add wrapper flags to enable or disable AGENTS and skill sources for a single Codex run, while also detecting pre-disabled workspace state under `PWD`.
+Change wrapper default behavior so pre-disabled AGENTS and skill sources are automatically enabled for a run unless the matching `--no-*` flag explicitly keeps them disabled.
 
 Last Action:
-Implemented `--agents`, `--skills`, `--skags`, `--no-agents`, `--no-skills`, and `--no-skags`, updated the spec and README, and added Bats coverage for temporary enable/disable plus pre-disabled detection.
+Updated the wrapper contract and implementation so pre-disabled workflow sources auto-enable by default, refreshed README and SPEC wording, and rewrote Bats coverage around the new default plus explicit opt-out behavior.
 
 Next Step:
-Review the modified files, decide whether to keep the alias set exactly as implemented, and then either commit or refine the UX.
+Review the final diff and decide whether to keep the new auto-enable default as the intended wrapper UX.
 
 Next Action:
-Inspect the diffs, confirm the flag names, and decide whether wrapper notices are sufficient or whether a separate Codex-visible prompt mechanism is still desired.
+Inspect the final changes, confirm the messaging is clear enough for implicit auto-enable behavior, and then either commit or refine the UX wording.
 
 Open Decisions:
-- whether to keep the informal `skags` naming long-term or replace it with a more descriptive combined flag name later
-- whether wrapper stderr notices are enough, since injecting a Codex prompt would alter user input semantics
+- whether the auto-enable default should remain symmetric across AGENTS and skill sources long-term or become category-specific later
+- whether the existing stderr notices are sufficient UX for implicit auto-enable behavior
 
 Blockers:
 - none
@@ -43,9 +43,9 @@ Blockers:
 Relevant Spec Clauses:
 - `SPEC-PARSE-6`
 - `SPEC-PARSE-7`
-- `SPEC-PARSE-8`
 - `SPEC-PARSE-9`
 - `SPEC-PARSE-10`
+- `SPEC-PARSE-15`
 
 Files In Play:
 - SPEC.md
@@ -63,8 +63,8 @@ Validation Summary:
 - `bats test/wrapper.bats`
 
 Operational Notes:
-- wrapper enable/disable behavior uses temporary `.disabled` renames under the launch directory and restores only paths it renamed itself
-- pre-existing `*.disabled` entries are detected before launch
+- pre-existing `*.disabled` entries are now auto-enabled by default unless the matching `--no-*` flag suppresses that category
+- wrapper still uses temporary `.disabled` renames under the launch directory and restores only paths it renamed itself
 - wrapper notices are printed to stderr before launch when AGENTS and/or SKILLS are enabled or disabled for the run
 
 Local Exceptions:

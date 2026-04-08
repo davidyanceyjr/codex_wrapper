@@ -176,6 +176,15 @@ __codex_wrapper_validate_toggle_flags() {
 	fi
 }
 
+__codex_wrapper_apply_default_enables() {
+	if ((agents_disabled_detected && !disable_agents)); then
+		enable_agents=1
+	fi
+	if ((skills_disabled_detected && !disable_skills)); then
+		enable_skills=1
+	fi
+}
+
 __codex_wrapper_find_targets() {
 	local category=$1
 	case "$category" in
@@ -526,6 +535,7 @@ codex() {
 	__codex_wrapper_require_real_codex || return
 	__codex_wrapper_select_codex_prog
 	__codex_wrapper_scan_disabled_state
+	__codex_wrapper_apply_default_enables
 	if ((enable_agents)); then
 		__codex_wrapper_temporarily_enable agents || {
 			local rc=$?

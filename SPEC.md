@@ -184,47 +184,55 @@ Conflicting enable and disable flags for the same category are errors.
 
 ### SPEC-PARSE-13
 
+Per-run opt-out behavior is explicit: if workflow sources are pre-disabled on
+disk, the wrapper still enables them for the run unless the matching
+`--no-agents`, `--no-skills`, or `--no-skags` flag is passed.
+
+### SPEC-PARSE-14
+
 Wrapper enable and disable flags apply only within the launch directory subtree
 rooted at the current `PWD`.
 
-### SPEC-PARSE-14
+### SPEC-PARSE-15
 
 Wrapper enable and disable flags must not leave newly renamed entries behind
 after the wrapper finishes; entries the wrapper enables or disables temporarily
 must be restored to their original names before the function returns.
 
-### SPEC-PARSE-15
+### SPEC-PARSE-16
 
 If matching `*.disabled` entries already exist under `PWD`, the wrapper must
-detect that state before launch.
+detect that state before launch and treat those entries as enabled by default
+for the run unless the matching `--no-*` flag explicitly keeps that category
+disabled.
 
-### SPEC-PARSE-16
+### SPEC-PARSE-17
 
 If the wrapper temporarily enables pre-existing `*.disabled` entries, it must
 restore them to the disabled state when it exits.
 
-### SPEC-PARSE-17
+### SPEC-PARSE-18
 
 If the wrapper temporarily disables enabled entries, it must restore them to
 the enabled state when it exits.
 
-### SPEC-PARSE-18
+### SPEC-PARSE-19
 
 All wrapper-provided paths must be canonicalized before use.
 
-### SPEC-PARSE-19
+### SPEC-PARSE-20
 
 If a wrapper-provided path does not exist, the wrapper must fail before sandbox launch.
 
-### SPEC-PARSE-20
+### SPEC-PARSE-21
 
 Duplicate `--rw` paths must be deduplicated after canonicalization.
 
-### SPEC-PARSE-21
+### SPEC-PARSE-22
 
 Duplicate `--ro` paths must be deduplicated after canonicalization.
 
-### SPEC-PARSE-22
+### SPEC-PARSE-23
 
 If the same canonical path appears in both `--rw` and `--ro`, the `--rw` entry wins and the `--ro` entry must be suppressed.
 

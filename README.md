@@ -206,8 +206,17 @@ wrapper run, then restore them.
 `--no-skags` is shorthand for disabling both AGENTS and skill sources for the
 same run.
 
-If matching `*.disabled` entries already exist under `PWD`, the wrapper detects
-that state before launch and prints a notice.
+Default behavior: if `AGENTS.md.disabled`, `.codex.disabled`,
+`skills.disabled`, or `SKILLS.disabled` already exist under `PWD`, the wrapper
+will enable them for that run before launching Codex.
+
+To keep workflow sources off for a specific run, you must explicitly pass
+`--no-agents`, `--no-skills`, or `--no-skags`.
+
+If matching `*.disabled` entries already exist under `PWD`, the wrapper treats
+them as enabled by default for that run, prints an enable notice, and restores
+them to the disabled state afterward. Pass `--no-agents`, `--no-skills`, or
+`--no-skags` to keep the matching workflow sources disabled for that run.
 
 ---
 
