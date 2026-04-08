@@ -1,15 +1,15 @@
 # SESSION
 
 Session Start: 2026-04-08 10:41 CDT
-Session End: 2026-04-08 11:08 CDT
+Session End: 2026-04-08 13:13 CDT
 Session Status: active
 
 Branch: main
 Active Issue: none
-Stage: review
-Workflow Step: review
-Next Skill: propose
-Active Lanes: src, test, docs
+Stage: pair
+Workflow Step: pair
+Next Skill: review
+Active Lanes: docs, test
 
 Repository State: modified
 Validation Status: complete
@@ -22,50 +22,42 @@ Source Of Truth:
 - docs/AGENTS.md
 
 Current Goal:
-Change wrapper default behavior so pre-disabled AGENTS and skill sources are automatically enabled for a run unless the matching `--no-*` flag explicitly keeps them disabled.
+Fix installer behavior so a normal `git clone` followed by `./install.sh` leaves `codex` available from `~/.local/bin` in new Bash, Zsh, and login-shell sessions without manual copying.
 
 Last Action:
-Updated the wrapper contract and implementation so pre-disabled workflow sources auto-enable by default, refreshed README and SPEC wording, and rewrote Bats coverage around the new default plus explicit opt-out behavior.
+Extended the installer and uninstall flow to manage POSIX-safe PATH blocks across `.bashrc`, `.zshrc`, `.profile`, `.bash_profile`, and `.zprofile`, updated README wording, and expanded install coverage to verify fresh interactive and login-shell resolution.
 
 Next Step:
-Review the final diff and decide whether to keep the new auto-enable default as the intended wrapper UX.
+Review the multi-shell install-path fix and decide whether the legacy `--bashrc` flag should be renamed in a later compatibility-preserving slice.
 
 Next Action:
-Inspect the final changes, confirm the messaging is clear enough for implicit auto-enable behavior, and then either commit or refine the UX wording.
+Inspect the final diff, confirm the startup-file wording is acceptable UX, and then either commit or add a compatibility alias for a broader option name.
 
 Open Decisions:
-- whether the auto-enable default should remain symmetric across AGENTS and skill sources long-term or become category-specific later
-- whether the existing stderr notices are sufficient UX for implicit auto-enable behavior
+- whether the existing `--bashrc` flag name should stay for compatibility or gain a clearer alias such as `--shell-init`
+- whether install docs should recommend `./install.sh --yes --bashrc yes` as the default non-interactive path
 
 Blockers:
 - none
 
 Relevant Spec Clauses:
-- `SPEC-PARSE-6`
-- `SPEC-PARSE-7`
-- `SPEC-PARSE-9`
-- `SPEC-PARSE-10`
-- `SPEC-PARSE-15`
+- none
 
 Files In Play:
-- SPEC.md
 - README.md
-- src/codex_wrapper.sh
+- install.sh
+- test/install.bats
 - test/wrapper.bats
-- test/helper/common.bash
-- test/stubs/codex
 - SESSION.md
 
 Validation Summary:
-- `bash -n src/codex_wrapper.sh`
-- `bash -n test/helper/common.bash`
-- `bash -n test/stubs/codex`
-- `bats test/wrapper.bats`
+- `bash -n install.sh`
+- `bats test/install.bats`
 
 Operational Notes:
-- pre-existing `*.disabled` entries are now auto-enabled by default unless the matching `--no-*` flag suppresses that category
-- wrapper still uses temporary `.disabled` renames under the launch directory and restores only paths it renamed itself
-- wrapper notices are printed to stderr before launch when AGENTS and/or SKILLS are enabled or disabled for the run
+- installer still writes the wrapper to `~/.local/bin/codex` and uninstall support under `~/.local/share/codex-wrapper/`
+- managed startup content now uses a POSIX-safe PATH prepend block in `.bashrc`, `.zshrc`, `.profile`, `.bash_profile`, and `.zprofile`
+- install coverage now checks command discovery from a fresh interactive Bash shell and a fresh login Bash shell, not just file presence at the target path
 
 Local Exceptions:
 - none

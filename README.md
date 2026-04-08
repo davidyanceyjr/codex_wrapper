@@ -314,7 +314,7 @@ The installer:
 * installs the wrapper as `~/.local/bin/codex`
 * writes uninstall support under `~/.local/share/codex-wrapper/`
 * warns if `~/.local/bin` is not currently positioned to override the existing `codex`
-* can, with your permission, append a managed `codex()` override block to `~/.bashrc`
+* can, with your permission, append managed `PATH` blocks to `~/.bashrc`, `~/.zshrc`, `~/.profile`, `~/.bash_profile`, and `~/.zprofile` so interactive Bash, interactive Zsh, and login shells resolve `codex` from `~/.local/bin`
 
 If you prefer a non-interactive install:
 

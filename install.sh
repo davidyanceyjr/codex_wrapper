@@ -11,6 +11,10 @@ uninstall_path="${install_root}/uninstall.sh"
 backup_path="${install_root}/original-codex"
 state_path="${install_root}/install-state"
 bashrc_path="${HOME}/.bashrc"
+zshrc_path="${HOME}/.zshrc"
+profile_path="${HOME}/.profile"
+bash_profile_path="${HOME}/.bash_profile"
+zprofile_path="${HOME}/.zprofile"
 managed_start="# >>> codex-wrapper managed block >>>"
 managed_end="# <<< codex-wrapper managed block <<<"
 
@@ -23,7 +27,7 @@ Usage: ./install.sh [--yes] [--bashrc yes|no]
 
 Options:
   --yes           assume yes for install confirmation prompts
-  --bashrc MODE   choose whether to install the managed ~/.bashrc block
+  --bashrc MODE   choose whether to install managed shell startup blocks
                   MODE must be "yes" or "no"
   --help, -h      show this help
 EOF
@@ -187,18 +191,31 @@ uninstall_path="\${install_root}/uninstall.sh"
 backup_path="\${install_root}/original-codex"
 state_path="\${install_root}/install-state"
 bashrc_path="\${HOME}/.bashrc"
+zshrc_path="\${HOME}/.zshrc"
+profile_path="\${HOME}/.profile"
+bash_profile_path="\${HOME}/.bash_profile"
+zprofile_path="\${HOME}/.zprofile"
 managed_start="# >>> codex-wrapper managed block >>>"
 managed_end="# <<< codex-wrapper managed block <<<"
 
 remove_managed_block() {
-	[[ -f \$bashrc_path ]] || return 0
+	local target_rc=\$1
+	[[ -f \$target_rc ]] || return 0
 
 	awk -v start="\$managed_start" -v end="\$managed_end" '
 		\$0 == start { skip = 1; next }
 		\$0 == end { skip = 0; next }
 		!skip { print }
-	' "\$bashrc_path" >"\${bashrc_path}.codex-wrapper.tmp"
-	mv "\${bashrc_path}.codex-wrapper.tmp" "\$bashrc_path"
+	' "\$target_rc" >"\${target_rc}.codex-wrapper.tmp"
+	mv "\${target_rc}.codex-wrapper.tmp" "\$target_rc"
+}
+
+remove_managed_blocks() {
+	remove_managed_block "\$bashrc_path"
+	remove_managed_block "\$zshrc_path"
+	remove_managed_block "\$profile_path"
+	remove_managed_block "\$bash_profile_path"
+	remove_managed_block "\$zprofile_path"
 }
 
 restore_previous_target() {
@@ -217,7 +234,7 @@ restore_previous_target() {
 }
 
 main() {
-	remove_managed_block
+	remove_managed_blocks
 	restore_previous_target
 	rm -f "\$backup_path"
 	rm -f "\$state_path"
@@ -233,48 +250,66 @@ EOF
 	chmod 0755 "$uninstall_path"
 }
 
-append_bashrc_block() {
+managed_path_block() {
 	local block
 
 	block=$(cat <<EOF
 $managed_start
-codex() {
-	command "\$HOME/.local/bin/codex" "\$@"
-}
+case ":\$PATH:" in
+	*":\$HOME/.local/bin:"*) ;;
+	*) PATH="\$HOME/.local/bin:\$PATH" ;;
+esac
+export PATH
 $managed_end
 EOF
 )
+	printf '%s\n' "$block"
+}
 
-	if [[ -f $bashrc_path ]]; then
+append_managed_block() {
+	local target_rc=$1
+	local block
+
+	block="$(managed_path_block)"
+
+	if [[ -f $target_rc ]]; then
 		awk -v start="$managed_start" -v end="$managed_end" '
 			$0 == start { skip = 1; next }
 			$0 == end { skip = 0; next }
 			!skip { print }
-		' "$bashrc_path" >"${bashrc_path}.codex-wrapper.tmp"
-		mv "${bashrc_path}.codex-wrapper.tmp" "$bashrc_path"
+		' "$target_rc" >"${target_rc}.codex-wrapper.tmp"
+		mv "${target_rc}.codex-wrapper.tmp" "$target_rc"
 	fi
 
-	if [[ -f $bashrc_path && -s $bashrc_path ]]; then
-		printf '\n' >>"$bashrc_path"
+	if [[ -f $target_rc && -s $target_rc ]]; then
+		printf '\n' >>"$target_rc"
 	fi
-	printf '%s\n' "$block" >>"$bashrc_path"
+	printf '%s\n' "$block" >>"$target_rc"
+}
+
+append_managed_blocks() {
+	append_managed_block "$bashrc_path"
+	append_managed_block "$zshrc_path"
+	append_managed_block "$profile_path"
+	append_managed_block "$bash_profile_path"
+	append_managed_block "$zprofile_path"
 }
 
 maybe_install_bashrc_block() {
 	case "$install_bashrc_mode" in
 	yes)
-		append_bashrc_block
-		log "Installed managed codex shell block in $bashrc_path"
+		append_managed_blocks
+		log "Installed managed PATH blocks in ~/.bashrc, ~/.zshrc, ~/.profile, ~/.bash_profile, and ~/.zprofile"
 		;;
 	no)
 		return 0
 		;;
 	ask)
-		if confirm "Append a managed codex override block to $bashrc_path?" no; then
-			append_bashrc_block
-			log "Installed managed codex shell block in $bashrc_path"
+		if confirm "Append managed PATH blocks to your shell startup files?" no; then
+			append_managed_blocks
+			log "Installed managed PATH blocks in ~/.bashrc, ~/.zshrc, ~/.profile, ~/.bash_profile, and ~/.zprofile"
 		else
-			log "Skipped ~/.bashrc changes"
+			log "Skipped shell startup file changes"
 		fi
 		;;
 	esac
@@ -286,7 +321,7 @@ main() {
 
 	if needs_precedence_warning; then
 		warn "$bin_dir is not currently positioned to override the existing codex command."
-		warn "You can still install now and optionally add a managed override block to $bashrc_path."
+		warn "You can still install now and optionally add managed PATH blocks to your shell startup files."
 		confirm "Proceed with install?" yes || die "install aborted"
 	fi
 
@@ -297,7 +332,7 @@ main() {
 
 	log "Installed wrapper to $target_path"
 	log "Installed uninstall script to $uninstall_path"
-	log "Open a new shell after install for ~/.bashrc changes to take effect."
+	log "Open a new shell after install for shell startup file changes to take effect."
 }
 
 main "$@"

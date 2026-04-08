@@ -10,12 +10,20 @@ teardown() {
   teardown_test_env
 }
 
-@test "installer installs wrapper, uninstall script, and managed bashrc block" {
+@test "installer installs wrapper, uninstall script, and managed shell startup blocks" {
   run_installer --yes --bashrc yes
 
-  local target uninstall_path input_value actual_value
+  local target uninstall_path resolved_bash resolved_login
   target="$TEST_HOME/.local/bin/codex"
   uninstall_path="$TEST_HOME/.local/share/codex-wrapper/uninstall.sh"
+  resolved_bash="$(
+    env HOME="$TEST_HOME" PATH="/usr/bin:/bin" \
+      bash --rcfile "$TEST_HOME/.bashrc" -ic 'command -v codex' 2>/dev/null | tail -n 1
+  )"
+  resolved_login="$(
+    env HOME="$TEST_HOME" PATH="/usr/bin:/bin" \
+      bash --login -c 'command -v codex' 2>/dev/null | tail -n 1
+  )"
   input_value="argv: ./install.sh --yes --bashrc yes
 stdin_type: non-tty
 stdin_value: <empty>"
@@ -25,6 +33,12 @@ target_exists=$(log_file_exists "$target")
 target_executable=$([[ -x $target ]] && printf yes || printf no)
 uninstall_exists=$(log_file_exists "$uninstall_path")
 bashrc_block_count=$(count_lines_matching "codex-wrapper managed block" "$TEST_HOME/.bashrc")
+zshrc_block_count=$(count_lines_matching "codex-wrapper managed block" "$TEST_HOME/.zshrc")
+profile_block_count=$(count_lines_matching "codex-wrapper managed block" "$TEST_HOME/.profile")
+bash_profile_block_count=$(count_lines_matching "codex-wrapper managed block" "$TEST_HOME/.bash_profile")
+zprofile_block_count=$(count_lines_matching "codex-wrapper managed block" "$TEST_HOME/.zprofile")
+resolved_bash=$resolved_bash
+resolved_login=$resolved_login
 EOF
 )"
 
@@ -39,6 +53,12 @@ target_exists=yes
 target_executable=yes
 uninstall_exists=yes
 bashrc_block_count=2
+zshrc_block_count=2
+profile_block_count=2
+bash_profile_block_count=2
+zprofile_block_count=2
+resolved_bash=$TEST_HOME/.local/bin/codex
+resolved_login=$TEST_HOME/.local/bin/codex
 EOF
 )" \
     "status and install record" \
@@ -148,7 +168,7 @@ EOF
     "$actual_value"
 }
 
-@test "uninstall removes installed files and managed bashrc block" {
+@test "uninstall removes installed files and managed shell startup blocks" {
   run_installer --yes --bashrc yes
   [[ $status -eq 0 ]]
 
@@ -163,6 +183,10 @@ status=$status
 target_exists=$(log_file_exists "$TEST_HOME/.local/bin/codex")
 uninstall_exists=$(log_file_exists "$TEST_HOME/.local/share/codex-wrapper/uninstall.sh")
 bashrc_block_count=$(count_lines_matching "codex-wrapper managed block" "$TEST_HOME/.bashrc")
+zshrc_block_count=$(count_lines_matching "codex-wrapper managed block" "$TEST_HOME/.zshrc")
+profile_block_count=$(count_lines_matching "codex-wrapper managed block" "$TEST_HOME/.profile")
+bash_profile_block_count=$(count_lines_matching "codex-wrapper managed block" "$TEST_HOME/.bash_profile")
+zprofile_block_count=$(count_lines_matching "codex-wrapper managed block" "$TEST_HOME/.zprofile")
 EOF
 )"
 
@@ -176,20 +200,34 @@ status=0
 target_exists=no
 uninstall_exists=no
 bashrc_block_count=0
+zshrc_block_count=0
+profile_block_count=0
+bash_profile_block_count=0
+zprofile_block_count=0
 EOF
 )" \
     "status and cleanup record" \
     "$actual_value"
 }
 
-@test "installer rewrites an existing managed bashrc block on reinstall" {
+@test "installer rewrites existing managed shell startup blocks on reinstall" {
   mkdir -p "$TEST_HOME"
   cat >"$TEST_HOME/.bashrc" <<'EOF'
 # user config
 # >>> codex-wrapper managed block >>>
-codex() {
-	command "/tmp/old/codex" "$@"
-}
+export PATH="/tmp/old/bin:$PATH"
+# <<< codex-wrapper managed block <<<
+EOF
+  cat >"$TEST_HOME/.zshrc" <<'EOF'
+# user config
+# >>> codex-wrapper managed block >>>
+export PATH="/tmp/old/bin:$PATH"
+# <<< codex-wrapper managed block <<<
+EOF
+  cat >"$TEST_HOME/.bash_profile" <<'EOF'
+# user config
+# >>> codex-wrapper managed block >>>
+export PATH="/tmp/old/bin:$PATH"
 # <<< codex-wrapper managed block <<<
 EOF
 
@@ -202,8 +240,14 @@ stdin_value: <empty>"
   actual_value="$(cat <<EOF
 status=$status
 managed_start_count=$(count_lines_matching "^# >>> codex-wrapper managed block >>>$" "$TEST_HOME/.bashrc")
-new_target_count=$(grep -F 'command "$HOME/.local/bin/codex" "$@"' "$TEST_HOME/.bashrc" | wc -l)
-old_target_count=$(count_lines_matching '/tmp/old/codex' "$TEST_HOME/.bashrc")
+zsh_managed_start_count=$(count_lines_matching "^# >>> codex-wrapper managed block >>>$" "$TEST_HOME/.zshrc")
+bash_profile_managed_start_count=$(count_lines_matching "^# >>> codex-wrapper managed block >>>$" "$TEST_HOME/.bash_profile")
+new_target_count=$(grep -F 'PATH="$HOME/.local/bin:$PATH"' "$TEST_HOME/.bashrc" | wc -l)
+old_target_count=$(( \
+  $(count_lines_matching '/tmp/old/bin' "$TEST_HOME/.bashrc") + \
+  $(count_lines_matching '/tmp/old/bin' "$TEST_HOME/.zshrc") + \
+  $(count_lines_matching '/tmp/old/bin' "$TEST_HOME/.bash_profile") \
+))
 EOF
 )"
 
@@ -215,6 +259,8 @@ EOF
     "$(cat <<EOF
 status=0
 managed_start_count=1
+zsh_managed_start_count=1
+bash_profile_managed_start_count=1
 new_target_count=1
 old_target_count=0
 EOF
