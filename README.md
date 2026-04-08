@@ -18,6 +18,7 @@ It provides:
 
 * systemd-based sandboxing
 * explicit read/write path control
+* temporary per-run disabling of repo `AGENTS.md` and skill sources
 * automatic interactive vs non-interactive handling
 * safe fallback when sandboxing fails
 * early failure if the configured native Codex executable is missing or not executable
@@ -171,6 +172,43 @@ codex --rw /path/to/dir /another/path
 
 These are translated into systemd bind mounts.
 
+#### Temporarily toggle repo guidance
+
+```
+codex --agents
+codex --skills
+codex --skags
+codex --no-agents
+codex --no-skills
+codex --no-skags
+```
+
+`--agents` temporarily rename matching `AGENTS.md.disabled` entries under the
+current `PWD` subtree back to `AGENTS.md` for the duration of the wrapper run,
+then restore them to the disabled state.
+
+`--skills` temporarily rename matching `.codex.disabled`, `skills.disabled`,
+and `SKILLS.disabled` entries under the current `PWD` subtree back to their
+enabled names for the duration of the wrapper run, then restore them to the
+disabled state.
+
+`--skags` is shorthand for enabling both AGENTS and skill sources for the same
+run.
+
+`--no-agents` temporarily rename matching `AGENTS.md` entries under the current
+`PWD` subtree to `AGENTS.md.disabled` for the duration of the wrapper run, then
+restore them.
+
+`--no-skills` temporarily rename matching `.codex`, `skills`, and `SKILLS`
+entries under the current `PWD` subtree to `*.disabled` for the duration of the
+wrapper run, then restore them.
+
+`--no-skags` is shorthand for disabling both AGENTS and skill sources for the
+same run.
+
+If matching `*.disabled` entries already exist under `PWD`, the wrapper detects
+that state before launch and prints a notice.
+
 ---
 
 ### 3. Automatic Mode Selection
@@ -319,6 +357,71 @@ codex --rw ~/.local ~/src
 
 ---
 
+### `--no-agents`
+
+Temporarily disable `AGENTS.md` entries under the current `PWD` subtree for the
+duration of the wrapper run, then restore them.
+
+```
+codex --no-agents
+```
+
+---
+
+### `--agents`
+
+Temporarily enable `AGENTS.md.disabled` entries under the current `PWD` subtree
+for the duration of the wrapper run, then restore them to the disabled state.
+
+```
+codex --agents
+```
+
+---
+
+### `--no-skills`
+
+Temporarily disable `.codex`, `skills`, and `SKILLS` entries under the current
+`PWD` subtree for the duration of the wrapper run, then restore them.
+
+```
+codex --no-skills
+```
+
+---
+
+### `--skills`
+
+Temporarily enable `.codex.disabled`, `skills.disabled`, and `SKILLS.disabled`
+entries under the current `PWD` subtree for the duration of the wrapper run,
+then restore them to the disabled state.
+
+```
+codex --skills
+```
+
+---
+
+### `--no-skags`
+
+Equivalent to passing both `--no-agents` and `--no-skills`.
+
+```
+codex --no-skags
+```
+
+---
+
+### `--skags`
+
+Equivalent to passing both `--agents` and `--skills`.
+
+```
+codex --skags
+```
+
+---
+
 ### `--`
 
 Stops wrapper parsing.
@@ -393,6 +496,54 @@ codex --rw ~/.local
 
 ```
 codex --ro ~/.ssh
+```
+
+---
+
+### Disable AGENTS for one run
+
+```
+codex --no-agents
+```
+
+---
+
+### Enable disabled AGENTS for one run
+
+```
+codex --agents
+```
+
+---
+
+### Disable skill sources for one run
+
+```
+codex --no-skills
+```
+
+---
+
+### Enable disabled skill sources for one run
+
+```
+codex --skills
+```
+
+---
+
+### Disable both AGENTS and skill sources for one run
+
+```
+codex --no-skags
+```
+
+---
+
+### Enable both AGENTS and skill sources for one run
+
+```
+codex --skags
 ```
 
 ---
