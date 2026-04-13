@@ -151,14 +151,14 @@ A missing path list after `--ro` or `--rw` is an error.
 
 ### SPEC-PARSE-6
 
-`--agents` requests that `AGENTS.md.disabled` files under the launch directory
-be enabled for the duration of the wrapper run.
+`--agents` requests that `AGENTS.md.disabled` and `.agents.disabled` entries
+under the launch directory be enabled.
 
 ### SPEC-PARSE-7
 
-`--skills` requests that `.codex.disabled`, `skills.disabled`, and
-`SKILLS.disabled` entries under the launch directory be enabled for the
-duration of the wrapper run.
+`--skills` requests that `.agents.disabled`, `.codex.disabled`,
+`skills.disabled`, and `SKILLS.disabled` entries under the launch directory be
+enabled.
 
 ### SPEC-PARSE-8
 
@@ -166,13 +166,13 @@ duration of the wrapper run.
 
 ### SPEC-PARSE-9
 
-`--no-agents` requests that `AGENTS.md` files under the launch directory be
-disabled for the duration of the wrapper run.
+`--no-agents` requests that `AGENTS.md` and `.agents` entries under the launch
+directory be disabled.
 
 ### SPEC-PARSE-10
 
-`--no-skills` requests that `.codex`, `skills`, and `SKILLS` entries under the
-launch directory be disabled for the duration of the wrapper run.
+`--no-skills` requests that `.agents`, `.codex`, `skills`, and `SKILLS`
+entries under the launch directory be disabled.
 
 ### SPEC-PARSE-11
 
@@ -184,9 +184,8 @@ Conflicting enable and disable flags for the same category are errors.
 
 ### SPEC-PARSE-13
 
-Per-run opt-out behavior is explicit: if workflow sources are pre-disabled on
-disk, the wrapper still enables them for the run unless the matching
-`--no-agents`, `--no-skills`, or `--no-skags` flag is passed.
+If workflow sources are pre-disabled on disk, the wrapper enables them unless
+the matching `--no-agents`, `--no-skills`, or `--no-skags` flag is passed.
 
 ### SPEC-PARSE-14
 
@@ -195,26 +194,24 @@ rooted at the current `PWD`.
 
 ### SPEC-PARSE-15
 
-Wrapper enable and disable flags must not leave newly renamed entries behind
-after the wrapper finishes; entries the wrapper enables or disables temporarily
-must be restored to their original names before the function returns.
+Wrapper enable and disable flags update the on-disk state within the launch
+directory subtree rooted at `PWD`; the wrapper does not restore the previous
+names when it exits.
 
 ### SPEC-PARSE-16
 
 If matching `*.disabled` entries already exist under `PWD`, the wrapper must
-detect that state before launch and treat those entries as enabled by default
-for the run unless the matching `--no-*` flag explicitly keeps that category
-disabled.
+detect that state before launch and enable those entries unless the matching
+`--no-*` flag explicitly keeps that category disabled.
 
 ### SPEC-PARSE-17
 
-If the wrapper temporarily enables pre-existing `*.disabled` entries, it must
-restore them to the disabled state when it exits.
+If the wrapper enables pre-existing `*.disabled` entries, it leaves them
+enabled when it exits.
 
 ### SPEC-PARSE-18
 
-If the wrapper temporarily disables enabled entries, it must restore them to
-the enabled state when it exits.
+If the wrapper disables enabled entries, it leaves them disabled when it exits.
 
 ### SPEC-PARSE-19
 
