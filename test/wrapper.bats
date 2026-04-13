@@ -225,19 +225,18 @@ stdin_value: <empty>"
       "$(log_file_exists "$TEST_LOG_DIR/codex.args")")"
 }
 
-@test "--no-agents temporarily disables AGENTS.md entries and restores them after launch" {
+@test "--no-agents disables AGENTS.md entries and leaves them disabled after launch" {
   export STUB_SYSTEMD_RUN_INVOKE_COMMAND=1
   export STUB_CODEX_WORKSPACE_SNAPSHOT="$TEST_LOG_DIR/workspace.snapshot"
-  mkdir -p "$TEST_WORKDIR/sub"
+  mkdir -p "$TEST_WORKDIR/sub" "$TEST_WORKDIR/.agents" "$TEST_WORKDIR/.codex"
   : > "$TEST_WORKDIR/AGENTS.md"
   : > "$TEST_WORKDIR/sub/AGENTS.md"
-  mkdir -p "$TEST_WORKDIR/.codex"
   run_wrapper --no-agents -- --help
 
   local snapshot post_state input_value actual_value passed
   snapshot="$(read_log_file "$STUB_CODEX_WORKSPACE_SNAPSHOT")"
   post_state="$(find "$TEST_WORKDIR" -maxdepth 3 \
-    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.codex' -o -name '.codex.disabled' \) \
+    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.agents' -o -name '.agents.disabled' -o -name '.codex' -o -name '.codex.disabled' \) \
     | sort)"
   input_value="argv: codex --no-agents -- --help
 stdin_type: non-tty
@@ -255,41 +254,46 @@ EOF
 
   passed=0
   if [[ $status == 0 ]] &&
-     [[ $output == *"AGENTS disabled under $TEST_WORKDIR"* ]] &&
+     [[ $output == *"AGENTS and SKILLS disabled under $TEST_WORKDIR"* ]] &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md" >/dev/null &&
+     ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md.disabled" >/dev/null &&
+     printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.agents.disabled" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -F -- 'AGENTS.md.disabled' >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md.disabled" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents.disabled" >/dev/null &&
      printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null; then
     passed=1
   fi
 
   assert_true_report \
-    "--no-agents temporarily disables AGENTS.md entries and restores them after launch" \
+    "--no-agents disables AGENTS.md entries and leaves them disabled after launch" \
     "wrapper invocation" \
     "$input_value" \
     "conditions" \
-    "status equals 0; runtime snapshot shows only AGENTS.md.disabled entries; .codex remains visible; post-run state restores AGENTS.md" \
+    "status equals 0; runtime snapshot shows AGENTS.md and .agents disabled while .codex remains visible, and post-run state keeps AGENTS.md disabled" \
     "record" \
     "$actual_value" \
     "$passed"
 }
 
-@test "--no-skills temporarily disables skill sources and restores them after launch" {
+@test "--no-skills disables skill sources and leaves them disabled after launch" {
   export STUB_SYSTEMD_RUN_INVOKE_COMMAND=1
   export STUB_CODEX_WORKSPACE_SNAPSHOT="$TEST_LOG_DIR/workspace.snapshot"
-  mkdir -p "$TEST_WORKDIR/.codex" "$TEST_WORKDIR/skills" "$TEST_WORKDIR/SKILLS"
+  mkdir -p "$TEST_WORKDIR/.agents" "$TEST_WORKDIR/.codex" "$TEST_WORKDIR/skills" "$TEST_WORKDIR/SKILLS"
   : > "$TEST_WORKDIR/AGENTS.md"
   run_wrapper --no-skills -- --help
 
   local snapshot post_state input_value actual_value passed
   snapshot="$(read_log_file "$STUB_CODEX_WORKSPACE_SNAPSHOT")"
   post_state="$(find "$TEST_WORKDIR" -maxdepth 3 \
-    \( -name 'AGENTS.md' -o -name '.codex' -o -name '.codex.disabled' -o -name 'skills' -o -name 'skills.disabled' -o -name 'SKILLS' -o -name 'SKILLS.disabled' \) \
+    \( -name 'AGENTS.md' -o -name '.agents' -o -name '.agents.disabled' -o -name '.codex' -o -name '.codex.disabled' -o -name 'skills' -o -name 'skills.disabled' -o -name 'SKILLS' -o -name 'SKILLS.disabled' \) \
     | sort)"
   input_value="argv: codex --no-skills -- --help
 stdin_type: non-tty
@@ -307,37 +311,43 @@ EOF
 
   passed=0
   if [[ $status == 0 ]] &&
-     [[ $output == *"SKILLS disabled under $TEST_WORKDIR"* ]] &&
+     [[ $output == *"AGENTS and SKILLS disabled under $TEST_WORKDIR"* ]] &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
+     ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/skills" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/SKILLS" >/dev/null &&
+     printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.agents.disabled" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/skills.disabled" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/SKILLS.disabled" >/dev/null &&
      printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/skills" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/SKILLS" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -F -- '.disabled' >/dev/null; then
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/skills" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/SKILLS" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents.disabled" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/skills.disabled" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/SKILLS.disabled" >/dev/null; then
     passed=1
   fi
 
   assert_true_report \
-    "--no-skills temporarily disables skill sources and restores them after launch" \
+    "--no-skills disables skill sources and leaves them disabled after launch" \
     "wrapper invocation" \
     "$input_value" \
     "conditions" \
-    "status equals 0; runtime snapshot shows only disabled skill paths; AGENTS.md remains visible; post-run state restores skill paths" \
+    "status equals 0; runtime snapshot shows .agents and skill paths disabled while AGENTS.md remains visible, and the combined disable banner is reported; post-run state keeps skill paths disabled" \
     "record" \
     "$actual_value" \
     "$passed"
 }
 
-@test "--no-skags temporarily disables both AGENTS and skill sources and restores them after launch" {
+@test "--no-skags disables both AGENTS and skill sources and leaves them disabled after launch" {
   export STUB_SYSTEMD_RUN_INVOKE_COMMAND=1
   export STUB_CODEX_WORKSPACE_SNAPSHOT="$TEST_LOG_DIR/workspace.snapshot"
-  mkdir -p "$TEST_WORKDIR/sub" "$TEST_WORKDIR/.codex" "$TEST_WORKDIR/skills"
+  mkdir -p "$TEST_WORKDIR/sub" "$TEST_WORKDIR/.agents" "$TEST_WORKDIR/.codex" "$TEST_WORKDIR/skills"
   : > "$TEST_WORKDIR/AGENTS.md"
   : > "$TEST_WORKDIR/sub/AGENTS.md"
   run_wrapper --no-skags -- --help
@@ -345,7 +355,7 @@ EOF
   local snapshot post_state input_value actual_value passed
   snapshot="$(read_log_file "$STUB_CODEX_WORKSPACE_SNAPSHOT")"
   post_state="$(find "$TEST_WORKDIR" -maxdepth 3 \
-    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.codex' -o -name '.codex.disabled' -o -name 'skills' -o -name 'skills.disabled' \) \
+    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.agents' -o -name '.agents.disabled' -o -name '.codex' -o -name '.codex.disabled' -o -name 'skills' -o -name 'skills.disabled' \) \
     | sort)"
   input_value="argv: codex --no-skags -- --help
 stdin_type: non-tty
@@ -366,34 +376,41 @@ EOF
      [[ $output == *"AGENTS and SKILLS disabled under $TEST_WORKDIR"* ]] &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md.disabled" >/dev/null &&
+     printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.agents.disabled" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/skills.disabled" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
+     ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/skills" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/skills" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -F -- '.disabled' >/dev/null; then
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/skills" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md.disabled" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents.disabled" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/skills.disabled" >/dev/null; then
     passed=1
   fi
 
   assert_true_report \
-    "--no-skags temporarily disables both AGENTS and skill sources and restores them after launch" \
+    "--no-skags disables both AGENTS and skill sources and leaves them disabled after launch" \
     "wrapper invocation" \
     "$input_value" \
     "conditions" \
-    "status equals 0; runtime snapshot shows disabled AGENTS and skill paths; post-run state restores both sets" \
+    "status equals 0; runtime snapshot shows disabled AGENTS, .agents, and skill paths; post-run state keeps both sets disabled" \
     "record" \
     "$actual_value" \
     "$passed"
 }
 
-@test "--agents temporarily enables disabled AGENTS entries and restores them after launch" {
+@test "--agents enables disabled AGENTS entries and leaves them enabled after launch" {
   export STUB_SYSTEMD_RUN_INVOKE_COMMAND=1
   export STUB_CODEX_WORKSPACE_SNAPSHOT="$TEST_LOG_DIR/workspace.snapshot"
-  mkdir -p "$TEST_WORKDIR/sub" "$TEST_WORKDIR/.codex.disabled"
+  mkdir -p "$TEST_WORKDIR/sub" "$TEST_WORKDIR/.codex.disabled" "$TEST_WORKDIR/.agents.disabled"
   : > "$TEST_WORKDIR/AGENTS.md.disabled"
   : > "$TEST_WORKDIR/sub/AGENTS.md.disabled"
   run_wrapper --agents -- --help
@@ -401,7 +418,7 @@ EOF
   local snapshot post_state input_value actual_value passed
   snapshot="$(read_log_file "$STUB_CODEX_WORKSPACE_SNAPSHOT")"
   post_state="$(find "$TEST_WORKDIR" -maxdepth 3 \
-    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.codex' -o -name '.codex.disabled' \) \
+    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.agents' -o -name '.agents.disabled' -o -name '.codex' -o -name '.codex.disabled' \) \
     | sort)"
   input_value="argv: codex --agents -- --help
 stdin_type: non-tty
@@ -422,41 +439,45 @@ EOF
      [[ $output == *"AGENTS and SKILLS enabled under $TEST_WORKDIR"* ]] &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md" >/dev/null &&
+     printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md.disabled" >/dev/null &&
+     ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.agents.disabled" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md.disabled" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null; then
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md.disabled" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents.disabled" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null; then
     passed=1
   fi
 
   assert_true_report \
-    "--agents temporarily enables disabled AGENTS entries and restores them after launch" \
+    "--agents enables disabled AGENTS entries and leaves them enabled after launch" \
     "wrapper invocation" \
     "$input_value" \
     "conditions" \
-    "status equals 0; runtime snapshot shows AGENTS enabled and pre-disabled skills also enabled by default; post-run state restores disabled entries" \
+    "status equals 0; runtime snapshot shows AGENTS and .agents enabled and pre-disabled skills also enabled by default; post-run state keeps those entries enabled" \
     "record" \
     "$actual_value" \
     "$passed"
 }
 
-@test "--skills temporarily enables disabled skill sources and restores them after launch" {
+@test "--skills enables disabled skill sources and leaves them enabled after launch" {
   export STUB_SYSTEMD_RUN_INVOKE_COMMAND=1
   export STUB_CODEX_WORKSPACE_SNAPSHOT="$TEST_LOG_DIR/workspace.snapshot"
   : > "$TEST_WORKDIR/AGENTS.md.disabled"
-  mkdir -p "$TEST_WORKDIR/.codex.disabled" "$TEST_WORKDIR/skills.disabled" "$TEST_WORKDIR/SKILLS.disabled"
+  mkdir -p "$TEST_WORKDIR/.agents.disabled" "$TEST_WORKDIR/.codex.disabled" "$TEST_WORKDIR/skills.disabled" "$TEST_WORKDIR/SKILLS.disabled"
   run_wrapper --skills -- --help
 
   local snapshot post_state input_value actual_value passed
   snapshot="$(read_log_file "$STUB_CODEX_WORKSPACE_SNAPSHOT")"
   post_state="$(find "$TEST_WORKDIR" -maxdepth 3 \
-    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.codex' -o -name '.codex.disabled' -o -name 'skills' -o -name 'skills.disabled' -o -name 'SKILLS' -o -name 'SKILLS.disabled' \) \
+    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.agents' -o -name '.agents.disabled' -o -name '.codex' -o -name '.codex.disabled' -o -name 'skills' -o -name 'skills.disabled' -o -name 'SKILLS' -o -name 'SKILLS.disabled' \) \
     | sort)"
   input_value="argv: codex --skills -- --help
 stdin_type: non-tty
@@ -476,39 +497,43 @@ EOF
   if [[ $status == 0 ]] &&
      [[ $output == *"AGENTS and SKILLS enabled under $TEST_WORKDIR"* ]] &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
+     printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/skills" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/SKILLS" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
+     ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.agents.disabled" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/skills.disabled" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/SKILLS.disabled" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/skills.disabled" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/SKILLS.disabled" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/skills" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/SKILLS" >/dev/null; then
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/skills" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/SKILLS" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents.disabled" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/skills.disabled" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/SKILLS.disabled" >/dev/null; then
     passed=1
   fi
 
   assert_true_report \
-    "--skills temporarily enables disabled skill sources and restores them after launch" \
+    "--skills enables disabled skill sources and leaves them enabled after launch" \
     "wrapper invocation" \
     "$input_value" \
     "conditions" \
-    "status equals 0; runtime snapshot shows skill paths enabled and pre-disabled AGENTS also enabled by default; post-run state restores disabled entries" \
+    "status equals 0; runtime snapshot shows .agents and skill paths enabled and pre-disabled AGENTS also enabled by default; post-run state keeps those entries enabled" \
     "record" \
     "$actual_value" \
     "$passed"
 }
 
-@test "--skags temporarily enables both disabled AGENTS and skill sources and restores them after launch" {
+@test "--skags enables both disabled AGENTS and skill sources and leaves them enabled after launch" {
   export STUB_SYSTEMD_RUN_INVOKE_COMMAND=1
   export STUB_CODEX_WORKSPACE_SNAPSHOT="$TEST_LOG_DIR/workspace.snapshot"
-  mkdir -p "$TEST_WORKDIR/sub" "$TEST_WORKDIR/.codex.disabled" "$TEST_WORKDIR/skills.disabled"
+  mkdir -p "$TEST_WORKDIR/sub" "$TEST_WORKDIR/.agents.disabled" "$TEST_WORKDIR/.codex.disabled" "$TEST_WORKDIR/skills.disabled"
   : > "$TEST_WORKDIR/AGENTS.md.disabled"
   : > "$TEST_WORKDIR/sub/AGENTS.md.disabled"
   run_wrapper --skags -- --help
@@ -516,7 +541,7 @@ EOF
   local snapshot post_state input_value actual_value passed
   snapshot="$(read_log_file "$STUB_CODEX_WORKSPACE_SNAPSHOT")"
   post_state="$(find "$TEST_WORKDIR" -maxdepth 3 \
-    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.codex' -o -name '.codex.disabled' -o -name 'skills' -o -name 'skills.disabled' \) \
+    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.agents' -o -name '.agents.disabled' -o -name '.codex' -o -name '.codex.disabled' -o -name 'skills' -o -name 'skills.disabled' \) \
     | sort)"
   input_value="argv: codex --skags -- --help
 stdin_type: non-tty
@@ -537,25 +562,29 @@ EOF
      [[ $output == *"AGENTS and SKILLS enabled under $TEST_WORKDIR"* ]] &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md" >/dev/null &&
+     printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/skills" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -F -- '.disabled' >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md.disabled" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/skills.disabled" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/skills" >/dev/null; then
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/skills" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/sub/AGENTS.md.disabled" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents.disabled" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/skills.disabled" >/dev/null; then
     passed=1
   fi
 
   assert_true_report \
-    "--skags temporarily enables both disabled AGENTS and skill sources and restores them after launch" \
+    "--skags enables both disabled AGENTS and skill sources and leaves them enabled after launch" \
     "wrapper invocation" \
     "$input_value" \
     "conditions" \
-    "status equals 0; runtime snapshot shows AGENTS and skill paths enabled; post-run state restores disabled entries" \
+    "status equals 0; runtime snapshot shows AGENTS, .agents, and skill paths enabled; post-run state keeps those entries enabled" \
     "record" \
     "$actual_value" \
     "$passed"
@@ -584,17 +613,17 @@ stdin_value: <empty>"
     "$actual_value"
 }
 
-@test "pre-disabled AGENTS and SKILLS are auto-enabled without flags and restored after launch" {
+@test "pre-disabled AGENTS and SKILLS are auto-enabled without flags and left enabled after launch" {
   export STUB_SYSTEMD_RUN_INVOKE_COMMAND=1
   export STUB_CODEX_WORKSPACE_SNAPSHOT="$TEST_LOG_DIR/workspace.snapshot"
   : > "$TEST_WORKDIR/AGENTS.md.disabled"
-  mkdir -p "$TEST_WORKDIR/.codex.disabled"
+  mkdir -p "$TEST_WORKDIR/.agents.disabled" "$TEST_WORKDIR/.codex.disabled"
   run_wrapper -- --help
 
   local snapshot post_state input_value actual_value passed
   snapshot="$(read_log_file "$STUB_CODEX_WORKSPACE_SNAPSHOT")"
   post_state="$(find "$TEST_WORKDIR" -maxdepth 3 \
-    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.codex' -o -name '.codex.disabled' \) \
+    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.agents' -o -name '.agents.disabled' -o -name '.codex' -o -name '.codex.disabled' \) \
     | sort)"
   input_value="argv: codex -- --help
 stdin_type: non-tty
@@ -614,22 +643,26 @@ EOF
   if [[ $status == 0 ]] &&
      [[ $output == *"AGENTS and SKILLS enabled under $TEST_WORKDIR"* ]] &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
+     printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
+     ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.agents.disabled" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null; then
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents.disabled" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null; then
     passed=1
   fi
 
   assert_true_report \
-    "pre-disabled AGENTS and SKILLS are auto-enabled without flags and restored after launch" \
+    "pre-disabled AGENTS and SKILLS are auto-enabled without flags and left enabled after launch" \
     "wrapper invocation" \
     "$input_value" \
     "conditions" \
-    "status equals 0; output reports enabled state; runtime snapshot shows enabled paths; post-run state restores disabled entries" \
+    "status equals 0; output reports enabled state; runtime snapshot shows AGENTS, .agents, and skill paths enabled; post-run state keeps them enabled" \
     "record" \
     "$actual_value" \
     "$passed"
@@ -639,13 +672,13 @@ EOF
   export STUB_SYSTEMD_RUN_INVOKE_COMMAND=1
   export STUB_CODEX_WORKSPACE_SNAPSHOT="$TEST_LOG_DIR/workspace.snapshot"
   : > "$TEST_WORKDIR/AGENTS.md.disabled"
-  mkdir -p "$TEST_WORKDIR/.codex.disabled"
+  mkdir -p "$TEST_WORKDIR/.agents.disabled" "$TEST_WORKDIR/.codex.disabled"
   run_wrapper --no-agents -- --help
 
   local snapshot post_state input_value actual_value passed
   snapshot="$(read_log_file "$STUB_CODEX_WORKSPACE_SNAPSHOT")"
   post_state="$(find "$TEST_WORKDIR" -maxdepth 3 \
-    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.codex' -o -name '.codex.disabled' \) \
+    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.agents' -o -name '.agents.disabled' -o -name '.codex' -o -name '.codex.disabled' \) \
     | sort)"
   input_value="argv: codex --no-agents -- --help
 stdin_type: non-tty
@@ -664,15 +697,19 @@ EOF
   passed=0
   if [[ $status == 0 ]] &&
      [[ $output == *"SKILLS enabled under $TEST_WORKDIR"* ]] &&
-     [[ $output == *"AGENTS disabled under $TEST_WORKDIR"* ]] &&
+     [[ $output == *"AGENTS and SKILLS disabled under $TEST_WORKDIR"* ]] &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
+     printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.agents.disabled" >/dev/null &&
      printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
+     ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
      ! printf '%s\n' "$snapshot" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null &&
      printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md.disabled" >/dev/null &&
-     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents.disabled" >/dev/null &&
+     printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null &&
      ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/AGENTS.md" >/dev/null &&
-     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex" >/dev/null; then
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.agents" >/dev/null &&
+     ! printf '%s\n' "$post_state" | grep -Fx -- "$TEST_WORKDIR/.codex.disabled" >/dev/null; then
     passed=1
   fi
 
@@ -681,7 +718,7 @@ EOF
     "wrapper invocation" \
     "$input_value" \
     "conditions" \
-    "status equals 0; output reports AGENTS disabled and SKILLS enabled; runtime snapshot keeps AGENTS disabled and enables skills; post-run state restores disabled entries" \
+    "status equals 0; output reports SKILLS enabled and the combined AGENTS and SKILLS disable banner; runtime snapshot keeps AGENTS and .agents disabled and enables skills; post-run state matches that persisted state" \
     "record" \
     "$actual_value" \
     "$passed"

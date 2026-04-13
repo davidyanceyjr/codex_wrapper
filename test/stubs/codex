@@ -12,7 +12,7 @@ done
 
 if [[ -n ${STUB_CODEX_WORKSPACE_SNAPSHOT:-} ]]; then
   find "$PWD" -maxdepth 3 \
-    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.codex' -o -name '.codex.disabled' -o -name 'skills' -o -name 'skills.disabled' -o -name 'SKILLS' -o -name 'SKILLS.disabled' \) \
+    \( -name 'AGENTS.md' -o -name 'AGENTS.md.disabled' -o -name '.agents' -o -name '.agents.disabled' -o -name '.codex' -o -name '.codex.disabled' -o -name 'skills' -o -name 'skills.disabled' -o -name 'SKILLS' -o -name 'SKILLS.disabled' \) \
     | sort >"$STUB_CODEX_WORKSPACE_SNAPSHOT"
 fi
 

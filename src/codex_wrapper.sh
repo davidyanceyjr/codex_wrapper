@@ -39,11 +39,11 @@ WRAPPER OPTIONS
   --ro=PATH     add one read-only bind for sandboxed run
   --rw PATH...  add one or more read-write binds for sandboxed run
   --rw=PATH     add one read-write bind for sandboxed run
-  --agents      temporarily enable AGENTS.md.disabled entries under PWD
-  --skills      temporarily enable .codex.disabled, skills.disabled, and SKILLS.disabled under PWD
+  --agents      enable AGENTS.md.disabled and .agents.disabled entries under PWD
+  --skills      enable .agents.disabled, .codex.disabled, skills.disabled, and SKILLS.disabled under PWD
   --skags       equivalent to --agents --skills
-  --no-agents   temporarily disable AGENTS.md entries under PWD
-  --no-skills   temporarily disable .codex, skills, and SKILLS under PWD
+  --no-agents   disable AGENTS.md and .agents entries under PWD
+  --no-skills   disable .agents, .codex, skills, and SKILLS under PWD
   --no-skags    equivalent to --no-agents --no-skills
   --help, -h    show this help
   --            stop wrapper parsing; forward rest to codex
@@ -189,16 +189,16 @@ __codex_wrapper_find_targets() {
 	local category=$1
 	case "$category" in
 	agents)
-		find "$PWD" -depth -name 'AGENTS.md' -print0
+		find "$PWD" -depth \( -name 'AGENTS.md' -o -name '.agents' \) -print0
 		;;
 	skills)
-		find "$PWD" -depth \( -name 'skills' -o -name 'SKILLS' -o -name '.codex' \) -print0
+		find "$PWD" -depth \( -name '.agents' -o -name 'skills' -o -name 'SKILLS' -o -name '.codex' \) -print0
 		;;
 	agents_disabled)
-		find "$PWD" -depth -name 'AGENTS.md.disabled' -print0
+		find "$PWD" -depth \( -name 'AGENTS.md.disabled' -o -name '.agents.disabled' \) -print0
 		;;
 	skills_disabled)
-		find "$PWD" -depth \( -name 'skills.disabled' -o -name 'SKILLS.disabled' -o -name '.codex.disabled' \) -print0
+		find "$PWD" -depth \( -name '.agents.disabled' -o -name 'skills.disabled' -o -name 'SKILLS.disabled' -o -name '.codex.disabled' \) -print0
 		;;
 	esac
 }
@@ -216,7 +216,7 @@ __codex_wrapper_scan_disabled_state() {
 	((${#matches[@]})) && skills_disabled_detected=1
 }
 
-__codex_wrapper_temporarily_disable() {
+__codex_wrapper_apply_disable() {
 	local category=$1 path
 	local -a matches=()
 
@@ -224,7 +224,6 @@ __codex_wrapper_temporarily_disable() {
 	for path in "${matches[@]}"; do
 		[[ -e $path && ! -e ${path}.disabled ]] || continue
 		mv -- "$path" "${path}.disabled" || return
-		temporary_disabled_paths+=("$path")
 		case "$category" in
 		agents) agents_disabled_detected=1 ;;
 		skills) skills_disabled_detected=1 ;;
@@ -232,7 +231,7 @@ __codex_wrapper_temporarily_disable() {
 	done
 }
 
-__codex_wrapper_temporarily_enable() {
+__codex_wrapper_apply_enable() {
 	local category=$1 path original
 	local -a matches=()
 
@@ -241,28 +240,7 @@ __codex_wrapper_temporarily_enable() {
 		original=${path%.disabled}
 		[[ -e $path && ! -e $original ]] || continue
 		mv -- "$path" "$original" || return
-		temporary_enabled_paths+=("$original")
 	done
-}
-
-__codex_wrapper_restore_temporarily_disabled() {
-	local idx path
-	for ((idx = ${#temporary_disabled_paths[@]} - 1; idx >= 0; idx--)); do
-		path=${temporary_disabled_paths[idx]}
-		[[ -e ${path}.disabled ]] || continue
-		mv -- "${path}.disabled" "$path" || return
-	done
-	temporary_disabled_paths=()
-}
-
-__codex_wrapper_restore_temporarily_enabled() {
-	local idx path
-	for ((idx = ${#temporary_enabled_paths[@]} - 1; idx >= 0; idx--)); do
-		path=${temporary_enabled_paths[idx]}
-		[[ -e $path && ! -e ${path}.disabled ]] || continue
-		mv -- "$path" "${path}.disabled" || return
-	done
-	temporary_enabled_paths=()
 }
 
 __codex_wrapper_status_notice() {
@@ -290,7 +268,7 @@ __codex_wrapper_enable_notice() {
 	else
 		return 0
 	fi
-	((${#temporary_enabled_paths[@]})) || return 0
+	((enable_agents || enable_skills)) || return 0
 	printf 'codex-wrapper: %s enabled under %s\n' "$label" "$PWD" >&2
 }
 
@@ -521,8 +499,6 @@ codex() {
 
 	local -a ro_paths=() rw_paths=() app_args=() passthrough_args=()
 	local -a codex_prog=()
-	local -a temporary_disabled_paths=()
-	local -a temporary_enabled_paths=()
 	local show_help=0
 
 	__codex_wrapper_parse "$@" || return
@@ -537,36 +513,16 @@ codex() {
 	__codex_wrapper_scan_disabled_state
 	__codex_wrapper_apply_default_enables
 	if ((enable_agents)); then
-		__codex_wrapper_temporarily_enable agents || {
-			local rc=$?
-			__codex_wrapper_restore_temporarily_disabled || true
-			__codex_wrapper_restore_temporarily_enabled || true
-			return "$rc"
-		}
+		__codex_wrapper_apply_enable agents || return
 	fi
 	if ((enable_skills)); then
-		__codex_wrapper_temporarily_enable skills || {
-			local rc=$?
-			__codex_wrapper_restore_temporarily_disabled || true
-			__codex_wrapper_restore_temporarily_enabled || true
-			return "$rc"
-		}
+		__codex_wrapper_apply_enable skills || return
 	fi
 	if ((disable_agents)); then
-		__codex_wrapper_temporarily_disable agents || {
-			local rc=$?
-			__codex_wrapper_restore_temporarily_disabled || true
-			__codex_wrapper_restore_temporarily_enabled || true
-			return "$rc"
-		}
+		__codex_wrapper_apply_disable agents || return
 	fi
 	if ((disable_skills)); then
-		__codex_wrapper_temporarily_disable skills || {
-			local rc=$?
-			__codex_wrapper_restore_temporarily_disabled || true
-			__codex_wrapper_restore_temporarily_enabled || true
-			return "$rc"
-		}
+		__codex_wrapper_apply_disable skills || return
 	fi
 	__codex_wrapper_scan_disabled_state
 	__codex_wrapper_enable_notice
@@ -581,8 +537,6 @@ codex() {
 	rc=$?
 	if ((rc == 0)); then
 		__codex_wrapper_cleanup "$unit"
-		__codex_wrapper_restore_temporarily_disabled || return
-		__codex_wrapper_restore_temporarily_enabled || return
 		return 0
 	fi
 
@@ -592,16 +546,11 @@ codex() {
 		__codex_wrapper_log "sandbox did not start codex; using fallback"
 		__codex_wrapper_cleanup "$unit"
 		__codex_wrapper_fallback
-		rc=$?
-		__codex_wrapper_restore_temporarily_disabled || return
-		__codex_wrapper_restore_temporarily_enabled || return
-		return "$rc"
+		return $?
 	fi
 
 	__codex_wrapper_log "sandbox did start codex; not retrying"
 	__codex_wrapper_cleanup "$unit"
-	__codex_wrapper_restore_temporarily_disabled || return
-	__codex_wrapper_restore_temporarily_enabled || return
 	return "$rc"
 }
 

@@ -18,7 +18,7 @@ It provides:
 
 * systemd-based sandboxing
 * explicit read/write path control
-* temporary per-run disabling of repo `AGENTS.md` and skill sources
+* state-setting enable/disable of repo `AGENTS.md` and skill sources
 * automatic interactive vs non-interactive handling
 * safe fallback when sandboxing fails
 * early failure if the configured native Codex executable is missing or not executable
@@ -183,40 +183,37 @@ codex --no-skills
 codex --no-skags
 ```
 
-`--agents` temporarily rename matching `AGENTS.md.disabled` entries under the
-current `PWD` subtree back to `AGENTS.md` for the duration of the wrapper run,
-then restore them to the disabled state.
+`--agents` rename matching `AGENTS.md.disabled` and `.agents.disabled` entries
+under the current `PWD` subtree back to their enabled names and leave them
+enabled.
 
-`--skills` temporarily rename matching `.codex.disabled`, `skills.disabled`,
-and `SKILLS.disabled` entries under the current `PWD` subtree back to their
-enabled names for the duration of the wrapper run, then restore them to the
-disabled state.
+`--skills` rename matching `.agents.disabled`, `.codex.disabled`,
+`skills.disabled`, and `SKILLS.disabled` entries under the current `PWD`
+subtree back to their enabled names and leave them enabled.
 
 `--skags` is shorthand for enabling both AGENTS and skill sources for the same
 run.
 
-`--no-agents` temporarily rename matching `AGENTS.md` entries under the current
-`PWD` subtree to `AGENTS.md.disabled` for the duration of the wrapper run, then
-restore them.
+`--no-agents` rename matching `AGENTS.md` and `.agents` entries under the
+current `PWD` subtree to `*.disabled` and leave them disabled.
 
-`--no-skills` temporarily rename matching `.codex`, `skills`, and `SKILLS`
-entries under the current `PWD` subtree to `*.disabled` for the duration of the
-wrapper run, then restore them.
+`--no-skills` rename matching `.agents`, `.codex`, `skills`, and `SKILLS`
+entries under the current `PWD` subtree to `*.disabled` and leave them
+disabled.
 
 `--no-skags` is shorthand for disabling both AGENTS and skill sources for the
 same run.
 
-Default behavior: if `AGENTS.md.disabled`, `.codex.disabled`,
-`skills.disabled`, or `SKILLS.disabled` already exist under `PWD`, the wrapper
-will enable them for that run before launching Codex.
+Default behavior: if `AGENTS.md.disabled`, `.agents.disabled`,
+`.codex.disabled`, `skills.disabled`, or `SKILLS.disabled` already exist under
+`PWD`, the wrapper enables them before launching Codex and leaves them enabled.
 
 To keep workflow sources off for a specific run, you must explicitly pass
 `--no-agents`, `--no-skills`, or `--no-skags`.
 
 If matching `*.disabled` entries already exist under `PWD`, the wrapper treats
-them as enabled by default for that run, prints an enable notice, and restores
-them to the disabled state afterward. Pass `--no-agents`, `--no-skills`, or
-`--no-skags` to keep the matching workflow sources disabled for that run.
+them as enabled by default and renames them back to their enabled names unless
+`--no-agents`, `--no-skills`, or `--no-skags` keeps that category disabled.
 
 ---
 
@@ -368,8 +365,8 @@ codex --rw ~/.local ~/src
 
 ### `--no-agents`
 
-Temporarily disable `AGENTS.md` entries under the current `PWD` subtree for the
-duration of the wrapper run, then restore them.
+Disable `AGENTS.md` and `.agents` entries under the current `PWD` subtree and
+leave them disabled.
 
 ```
 codex --no-agents
@@ -379,8 +376,8 @@ codex --no-agents
 
 ### `--agents`
 
-Temporarily enable `AGENTS.md.disabled` entries under the current `PWD` subtree
-for the duration of the wrapper run, then restore them to the disabled state.
+Enable `AGENTS.md.disabled` and `.agents.disabled` entries under the current
+`PWD` subtree and leave them enabled.
 
 ```
 codex --agents
@@ -390,8 +387,8 @@ codex --agents
 
 ### `--no-skills`
 
-Temporarily disable `.codex`, `skills`, and `SKILLS` entries under the current
-`PWD` subtree for the duration of the wrapper run, then restore them.
+Disable `.agents`, `.codex`, `skills`, and `SKILLS` entries under the current
+`PWD` subtree and leave them disabled.
 
 ```
 codex --no-skills
@@ -401,9 +398,9 @@ codex --no-skills
 
 ### `--skills`
 
-Temporarily enable `.codex.disabled`, `skills.disabled`, and `SKILLS.disabled`
-entries under the current `PWD` subtree for the duration of the wrapper run,
-then restore them to the disabled state.
+Enable `.agents.disabled`, `.codex.disabled`, `skills.disabled`, and
+`SKILLS.disabled` entries under the current `PWD` subtree and leave them
+enabled.
 
 ```
 codex --skills
