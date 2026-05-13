@@ -1,12 +1,6 @@
-# Local AI workflow files
-AGENTS.md
-**/AGENTS.md
-AGENTS.md.disabled
-**/AGENTS.md.disabled
-SESSION.md
-SPEC.md
-.codex/
-.codex.disabled/
-.skills/
-.skills/.SKILLS
-skills/SKILLS
+# Local development artifacts
+.DS_Store
+*.swp
+*.swo
+*.tmp
+*~
