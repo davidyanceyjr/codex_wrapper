@@ -18,6 +18,7 @@ It provides:
 
 * systemd-based sandboxing
 * explicit read/write path control
+* wrapper-scoped profile resolution on the existing `--profile` flag
 * state-setting enable/disable of repo `AGENTS.md` and skill sources
 * automatic interactive vs non-interactive handling
 * safe fallback when sandboxing fails
@@ -52,10 +53,13 @@ Default access in primary mode:
 * `SSH_AUTH_SOCK` is mounted read-only when an SSH agent is available
 * network access is available
 
-Important: the wrapper does **not** automatically mount `~/.ssh`. If you need SSH config files or keys inside the sandbox, add them explicitly:
+Wrapper profiles can override those defaults. For example, `--profile readonly`
+exposes the workspace read-only and `--profile offline` disables network access.
+
+Important: the wrapper does **not** automatically mount `~/.ssh`. If you need SSH config files inside the sandbox, either add them explicitly or use the `ssh` wrapper profile. The wrapper still does **not** auto-mount private keys.
 
 ```
-codex --ro ~/.ssh
+codex --profile ssh
 ```
 
 Use primary mode for normal repo work where you want Codex to move quickly but stay confined to the workspace and any paths you explicitly bind.
@@ -67,7 +71,7 @@ If `systemd-run` fails before Codex actually starts, the wrapper retries without
 ```
 --ask-for-approval on-request
 --sandbox workspace-write
--c sandbox_workspace_write.network_access=true
+-c sandbox_workspace_write.network_access=<true|false>
 --cd <launch-directory>
 ```
 
@@ -76,7 +80,8 @@ This mode is more conservative:
 * Codex is rooted at the launch directory
 * native workspace-write restrictions apply
 * approval is required when Codex decides it should escalate
-* the wrapper does not carry wrapper `--ro` / `--rw` paths into fallback
+* the wrapper does not carry wrapper `--ro` / `--rw` / profile mount rules into fallback
+* `--profile offline` changes fallback network access to `false`
 
 This is the recovery path when `systemd --user` is unavailable or fails to launch the service.
 
@@ -97,7 +102,7 @@ codex --ro /some/reference/path -- --model gpt-5.4 --search
 Use custom mode when you want the wrapper to manage the outer execution boundary while still forwarding native Codex features such as:
 
 * model selection
-* config profiles
+* native Codex profiles
 * web search
 * structured output
 * review subcommands
@@ -171,6 +176,82 @@ codex --rw /path/to/dir /another/path
 ```
 
 These are translated into systemd bind mounts.
+
+#### Wrapper-scoped profiles on `--profile`
+
+The wrapper also consumes the existing `--profile` flag before `--`.
+
+Resolution rules:
+
+* repeated `--profile NAME` values are resolved left-to-right
+* unprefixed names prefer wrapper-scoped built-ins
+* unknown unprefixed names pass through to native Codex unchanged
+* `codex:NAME` forces native passthrough as `--profile NAME`
+* `wrapper:NAME` requires a wrapper profile named `NAME` and fails before launch if missing
+* native Codex profiles keep their original relative order among native profiles
+
+Built-in wrapper profiles:
+
+* `git`
+* `ssh`
+* `worktree`
+* `readonly`
+* `config`
+* `config-wide`
+* `host-context`
+* `offline`
+* `online`
+* `secrets-safe`
+
+User-defined wrapper profiles:
+
+* live at `~/.codex/wrapper-profiles.d/NAME.profile`
+* are consulted after built-ins, so built-in names still win
+* support line-based `ro PATH`, `rw PATH`, `deny PATH_OR_GLOB`, and `network on|off|default`
+* ignore blank lines and `#` comments
+* do not support env passthrough directives in this slice
+
+Profile composition rules:
+
+* profiles are composable and apply left-to-right
+* mount rules accumulate
+* later scalar settings override earlier scalar settings
+* deny rules override both read-only and read-write rules
+* explicit `--ro` / `--rw` override profile defaults unless blocked by `secrets-safe`
+* explicit `--rw` overrides explicit `--ro` for the same canonical path unless blocked by `secrets-safe`
+
+Selected built-in behavior:
+
+* `git` gives the workspace read-write access plus read-only Git and SSH client config
+* `ssh` mounts SSH config and known-hosts and may pass through `SSH_AUTH_SOCK` and `GIT_SSH_COMMAND`
+* `readonly` makes the workspace read-only and turns network off
+* `offline` turns network off
+* `online` turns network on
+* `secrets-safe` denies common credential locations even if a broader parent mount remains visible
+
+Security warning: `ssh` does not automatically mount private keys such as `~/.ssh/id_ed25519`.
+
+Examples:
+
+```
+codex --profile git
+```
+
+```
+codex --profile git --profile reviewer
+```
+
+```
+codex --profile codex:git
+```
+
+```
+codex --profile config-wide --profile secrets-safe
+```
+
+```
+codex --profile readonly --profile online
+```
 
 #### Temporarily toggle repo guidance
 
@@ -717,7 +798,7 @@ This prints:
 ## Limitations
 
 * Requires `systemd --user`
-* Not a container (no network isolation by default)
+* Not a container (network isolation is opt-in with `--profile offline`)
 * Sandbox depends on systemd behavior
 * Fallback mode is less secure
 

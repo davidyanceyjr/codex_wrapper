@@ -139,6 +139,499 @@ EOF
     "$passed"
 }
 
+@test "unprefixed wrapper profile wins over native passthrough" {
+  mkdir -p "$TEST_HOME/.ssh"
+  : > "$TEST_HOME/.ssh/config"
+  : > "$TEST_HOME/.ssh/known_hosts"
+  run_wrapper --profile git
+
+  local args_file actual_tail input_value actual_value passed
+  args_file="$TEST_LOG_DIR/systemd-run.args"
+  actual_tail="$(extract_command_tail "$args_file")"
+  input_value="argv: codex --profile git
+stdin_type: non-tty
+stdin_value: <empty>"
+  actual_value="$(cat <<EOF
+command_tail:
+$actual_tail
+ssh_config_mounts: $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/.ssh/config" "$args_file" | wc -l)
+known_hosts_mounts: $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/.ssh/known_hosts" "$args_file" | wc -l)
+EOF
+)"
+
+  passed=0
+  if ! printf '%s\n' "$actual_tail" | grep -Fx -- "--profile" >/dev/null &&
+     [[ $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/.ssh/config" "$args_file" | wc -l) == 1 ]] &&
+     [[ $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/.ssh/known_hosts" "$args_file" | wc -l) == 1 ]]; then
+    passed=1
+  fi
+
+  assert_true_report \
+    "unprefixed wrapper profile wins over native passthrough" \
+    "wrapper invocation" \
+    "$input_value" \
+    "conditions" \
+    "native --profile passthrough absent; git wrapper profile mounts ssh config and known_hosts" \
+    "record" \
+    "$actual_value" \
+    "$passed"
+}
+
+@test "unknown unprefixed profile passes through to codex" {
+  run_wrapper --profile reviewer
+
+  local actual_tail input_value actual_value passed
+  actual_tail="$(extract_command_tail "$TEST_LOG_DIR/systemd-run.args")"
+  input_value="argv: codex --profile reviewer
+stdin_type: non-tty
+stdin_value: <empty>"
+  actual_value="$(printf 'command_tail=\n%s' "$actual_tail")"
+
+  passed=0
+  if printf '%s\n' "$actual_tail" | grep -Fx -- "--profile" >/dev/null &&
+     printf '%s\n' "$actual_tail" | grep -Fx -- "reviewer" >/dev/null; then
+    passed=1
+  fi
+
+  assert_true_report \
+    "unknown unprefixed profile passes through to codex" \
+    "wrapper invocation" \
+    "$input_value" \
+    "conditions" \
+    "native --profile reviewer remains in codex argv" \
+    "record" \
+    "$actual_value" \
+    "$passed"
+}
+
+@test "user-defined wrapper profile applies from ~/.codex/wrapper-profiles.d" {
+  mkdir -p \
+    "$TEST_HOME/.codex/wrapper-profiles.d" \
+    "$TEST_HOME/profile-data/secret" \
+    "$TEST_ROOT/reference"
+  : > "$TEST_HOME/profile-data/file.txt"
+  : > "$TEST_HOME/profile-data/secret/token.txt"
+
+  cat > "$TEST_HOME/.codex/wrapper-profiles.d/reviewer.profile" <<EOF
+ro ~/profile-data
+rw $TEST_ROOT/reference
+deny ~/profile-data/secret
+network off
+EOF
+
+  run_wrapper --profile reviewer
+
+  local args_file actual_tail input_value actual_value passed
+  args_file="$TEST_LOG_DIR/systemd-run.args"
+  actual_tail="$(extract_command_tail "$args_file")"
+  input_value="argv: codex --profile reviewer
+stdin_type: non-tty
+stdin_value: <empty>"
+  actual_value="$(cat <<EOF
+command_tail:
+$actual_tail
+profile_ro_mounts: $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/profile-data" "$args_file" | wc -l)
+profile_rw_bind_mounts: $(extract_option_values "BindPaths=$TEST_ROOT/reference" "$args_file" | wc -l)
+profile_rw_write_mounts: $(extract_option_values "ReadWritePaths=$TEST_ROOT/reference" "$args_file" | wc -l)
+profile_deny_mounts: $(extract_option_values "InaccessiblePaths=$TEST_HOME/profile-data/secret" "$args_file" | wc -l)
+network_deny_mounts: $(extract_option_values "IPAddressDeny=any" "$args_file" | wc -l)
+EOF
+)"
+
+  passed=0
+  if ! printf '%s\n' "$actual_tail" | grep -Fx -- "--profile" >/dev/null &&
+     [[ $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/profile-data" "$args_file" | wc -l) == 1 ]] &&
+     [[ $(extract_option_values "BindPaths=$TEST_ROOT/reference" "$args_file" | wc -l) == 1 ]] &&
+     [[ $(extract_option_values "ReadWritePaths=$TEST_ROOT/reference" "$args_file" | wc -l) == 1 ]] &&
+     [[ $(extract_option_values "InaccessiblePaths=$TEST_HOME/profile-data/secret" "$args_file" | wc -l) == 1 ]] &&
+     [[ $(extract_option_values "IPAddressDeny=any" "$args_file" | wc -l) == 1 ]]; then
+    passed=1
+  fi
+
+  assert_true_report \
+    "user-defined wrapper profile applies from ~/.codex/wrapper-profiles.d" \
+    "wrapper invocation" \
+    "$input_value" \
+    "conditions" \
+    "native passthrough is absent; custom ro/rw/deny/network policy from the profile file is applied" \
+    "record" \
+    "$actual_value" \
+    "$passed"
+}
+
+@test "built-in wrapper profile wins over same-named user profile file" {
+  mkdir -p \
+    "$TEST_HOME/.codex/wrapper-profiles.d" \
+    "$TEST_HOME/.ssh" \
+    "$TEST_ROOT/custom-profile"
+  : > "$TEST_HOME/.ssh/config"
+  : > "$TEST_HOME/.ssh/known_hosts"
+
+  cat > "$TEST_HOME/.codex/wrapper-profiles.d/git.profile" <<EOF
+ro $TEST_ROOT/custom-profile
+network off
+EOF
+
+  run_wrapper --profile git
+
+  local args_file actual_tail input_value actual_value passed
+  args_file="$TEST_LOG_DIR/systemd-run.args"
+  actual_tail="$(extract_command_tail "$args_file")"
+  input_value="argv: codex --profile git
+stdin_type: non-tty
+stdin_value: <empty>"
+  actual_value="$(cat <<EOF
+command_tail:
+$actual_tail
+ssh_config_mounts: $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/.ssh/config" "$args_file" | wc -l)
+custom_profile_mounts: $(extract_option_values "BindReadOnlyPaths=$TEST_ROOT/custom-profile" "$args_file" | wc -l)
+network_deny_mounts: $(extract_option_values "IPAddressDeny=any" "$args_file" | wc -l)
+EOF
+)"
+
+  passed=0
+  if ! printf '%s\n' "$actual_tail" | grep -Fx -- "--profile" >/dev/null &&
+     [[ $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/.ssh/config" "$args_file" | wc -l) == 1 ]] &&
+     [[ $(extract_option_values "BindReadOnlyPaths=$TEST_ROOT/custom-profile" "$args_file" | wc -l) == 0 ]] &&
+     [[ $(extract_option_values "IPAddressDeny=any" "$args_file" | wc -l) == 0 ]]; then
+    passed=1
+  fi
+
+  assert_true_report \
+    "built-in wrapper profile wins over same-named user profile file" \
+    "wrapper invocation" \
+    "$input_value" \
+    "conditions" \
+    "built-in git behavior applies and same-named user profile content is ignored" \
+    "record" \
+    "$actual_value" \
+    "$passed"
+}
+
+@test "codex prefix forces native profile passthrough" {
+  run_wrapper --profile codex:git
+
+  local actual_tail input_value actual_value passed
+  actual_tail="$(extract_command_tail "$TEST_LOG_DIR/systemd-run.args")"
+  input_value="argv: codex --profile codex:git
+stdin_type: non-tty
+stdin_value: <empty>"
+  actual_value="$(printf 'command_tail=\n%s' "$actual_tail")"
+
+  passed=0
+  if printf '%s\n' "$actual_tail" | grep -Fx -- "--profile" >/dev/null &&
+     printf '%s\n' "$actual_tail" | grep -Fx -- "git" >/dev/null &&
+     ! printf '%s\n' "$actual_tail" | grep -Fx -- "codex:git" >/dev/null; then
+    passed=1
+  fi
+
+  assert_true_report \
+    "codex prefix forces native profile passthrough" \
+    "wrapper invocation" \
+    "$input_value" \
+    "conditions" \
+    "native codex receives --profile git and not the prefixed token" \
+    "record" \
+    "$actual_value" \
+    "$passed"
+}
+
+@test "wrapper prefix requires wrapper profile and fails if missing" {
+  run_wrapper --profile wrapper:missing
+
+  local input_value actual_value
+  input_value="argv: codex --profile wrapper:missing
+stdin_type: non-tty
+stdin_value: <empty>"
+  actual_value="$(printf 'status=%s\noutput=\n%s\nsystemd_run_log_exists=%s\ncodex_log_exists=%s' \
+    "$status" \
+    "$output" \
+    "$(log_file_exists "$TEST_LOG_DIR/systemd-run.args")" \
+    "$(log_file_exists "$TEST_LOG_DIR/codex.args")")"
+
+  assert_equal_report \
+    "wrapper prefix requires wrapper profile and fails if missing" \
+    "wrapper invocation" \
+    "$input_value" \
+    "status and output record" \
+    "$(printf 'status=2\noutput=\n%s\nsystemd_run_log_exists=no\ncodex_log_exists=no' "codex: unknown wrapper profile: missing")" \
+    "status and output record" \
+    "$actual_value"
+}
+
+@test "invalid user-defined wrapper profile fails before launch" {
+  mkdir -p "$TEST_HOME/.codex/wrapper-profiles.d"
+  cat > "$TEST_HOME/.codex/wrapper-profiles.d/reviewer.profile" <<EOF
+env SSH_AUTH_SOCK
+EOF
+
+  run_wrapper --profile reviewer
+
+  local input_value actual_value
+  input_value="argv: codex --profile reviewer
+stdin_type: non-tty
+stdin_value: <empty>"
+  actual_value="$(printf 'status=%s\noutput=\n%s\nsystemd_run_log_exists=%s\ncodex_log_exists=%s' \
+    "$status" \
+    "$output" \
+    "$(log_file_exists "$TEST_LOG_DIR/systemd-run.args")" \
+    "$(log_file_exists "$TEST_LOG_DIR/codex.args")")"
+
+  assert_equal_report \
+    "invalid user-defined wrapper profile fails before launch" \
+    "wrapper invocation" \
+    "$input_value" \
+    "status and output record" \
+    "$(printf 'status=2\noutput=\n%s\nsystemd_run_log_exists=no\ncodex_log_exists=no' "codex: invalid wrapper profile reviewer:1: unknown directive: env")" \
+    "status and output record" \
+    "$actual_value"
+}
+
+@test "multiple profiles are resolved left to right" {
+  run_wrapper --profile codex:first --profile git --profile codex:second
+
+  local actual_tail input_value actual_value
+  actual_tail="$(extract_command_tail "$TEST_LOG_DIR/systemd-run.args")"
+  input_value="argv: codex --profile codex:first --profile git --profile codex:second
+stdin_type: non-tty
+stdin_value: <empty>"
+  actual_value="$(printf 'command_tail=\n%s' "$actual_tail")"
+
+  assert_equal_report \
+    "multiple profiles are resolved left to right" \
+    "wrapper invocation" \
+    "$input_value" \
+    "command tail" \
+    "$(cat <<EOF
+$BATS_TEST_DIRNAME/stubs/codex
+exec
+--dangerously-bypass-approvals-and-sandbox
+--profile
+first
+--profile
+second
+EOF
+)" \
+    "command tail" \
+    "$actual_tail"
+}
+
+@test "offline changes fallback codex network config to false" {
+  export STUB_SYSTEMD_RUN_EXIT=1
+  export STUB_SYSTEMCTL_EXEC_PID=0
+  run_wrapper --profile offline -- --help
+
+  local actual_args input_value actual_value passed
+  actual_args="$(read_log_file "$TEST_LOG_DIR/codex.args")"
+  input_value="argv: codex --profile offline -- --help
+stdin_type: non-tty
+stdin_value: <empty>
+stubbed_systemd_run_exit: 1
+stubbed_exec_pid: 0"
+  actual_value="$(printf 'codex_args=\n%s' "$actual_args")"
+
+  passed=0
+  if printf '%s\n' "$actual_args" | grep -Fx -- "sandbox_workspace_write.network_access=false" >/dev/null; then
+    passed=1
+  fi
+
+  assert_true_report \
+    "offline changes fallback codex network config to false" \
+    "wrapper invocation with fallback" \
+    "$input_value" \
+    "conditions" \
+    "fallback codex args include sandbox_workspace_write.network_access=false" \
+    "record" \
+    "$actual_value" \
+    "$passed"
+}
+
+@test "online after offline results in network on" {
+  export STUB_SYSTEMD_RUN_EXIT=1
+  export STUB_SYSTEMCTL_EXEC_PID=0
+  run_wrapper --profile offline --profile online -- --help
+
+  local actual_args input_value actual_value passed
+  actual_args="$(read_log_file "$TEST_LOG_DIR/codex.args")"
+  input_value="argv: codex --profile offline --profile online -- --help
+stdin_type: non-tty
+stdin_value: <empty>
+stubbed_systemd_run_exit: 1
+stubbed_exec_pid: 0"
+  actual_value="$(printf 'codex_args=\n%s' "$actual_args")"
+
+  passed=0
+  if printf '%s\n' "$actual_args" | grep -Fx -- "sandbox_workspace_write.network_access=true" >/dev/null; then
+    passed=1
+  fi
+
+  assert_true_report \
+    "online after offline results in network on" \
+    "wrapper invocation with fallback" \
+    "$input_value" \
+    "conditions" \
+    "later online profile restores sandbox_workspace_write.network_access=true" \
+    "record" \
+    "$actual_value" \
+    "$passed"
+}
+
+@test "offline after online results in network off" {
+  export STUB_SYSTEMD_RUN_EXIT=1
+  export STUB_SYSTEMCTL_EXEC_PID=0
+  run_wrapper --profile online --profile offline -- --help
+
+  local actual_args input_value actual_value passed
+  actual_args="$(read_log_file "$TEST_LOG_DIR/codex.args")"
+  input_value="argv: codex --profile online --profile offline -- --help
+stdin_type: non-tty
+stdin_value: <empty>
+stubbed_systemd_run_exit: 1
+stubbed_exec_pid: 0"
+  actual_value="$(printf 'codex_args=\n%s' "$actual_args")"
+
+  passed=0
+  if printf '%s\n' "$actual_args" | grep -Fx -- "sandbox_workspace_write.network_access=false" >/dev/null; then
+    passed=1
+  fi
+
+  assert_true_report \
+    "offline after online results in network off" \
+    "wrapper invocation with fallback" \
+    "$input_value" \
+    "conditions" \
+    "later offline profile sets sandbox_workspace_write.network_access=false" \
+    "record" \
+    "$actual_value" \
+    "$passed"
+}
+
+@test "secrets-safe deny paths override profile mounts" {
+  mkdir -p "$TEST_HOME/.config/gcloud" "$TEST_HOME/.aws"
+  : > "$TEST_HOME/.config/gcloud/active_config"
+  : > "$TEST_HOME/.aws/credentials"
+  run_wrapper --profile config-wide --profile secrets-safe --ro "$TEST_HOME/.config/gcloud" --rw "$TEST_HOME/.aws"
+
+  local args_file input_value actual_value passed
+  args_file="$TEST_LOG_DIR/systemd-run.args"
+  input_value="argv: codex --profile config-wide --profile secrets-safe --ro $TEST_HOME/.config/gcloud --rw $TEST_HOME/.aws
+stdin_type: non-tty
+stdin_value: <empty>"
+  actual_value="$(cat <<EOF
+config_mounts: $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/.config" "$args_file" | wc -l)
+gcloud_mounts: $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/.config/gcloud" "$args_file" | wc -l)
+aws_bind_mounts: $(extract_option_values "BindPaths=$TEST_HOME/.aws" "$args_file" | wc -l)
+aws_rw_mounts: $(extract_option_values "ReadWritePaths=$TEST_HOME/.aws" "$args_file" | wc -l)
+gcloud_deny_mounts: $(extract_option_values "InaccessiblePaths=$TEST_HOME/.config/gcloud" "$args_file" | wc -l)
+aws_deny_mounts: $(extract_option_values "InaccessiblePaths=$TEST_HOME/.aws" "$args_file" | wc -l)
+EOF
+)"
+
+  passed=0
+  if [[ $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/.config" "$args_file" | wc -l) == 1 ]] &&
+     [[ $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/.config/gcloud" "$args_file" | wc -l) == 0 ]] &&
+     [[ $(extract_option_values "BindPaths=$TEST_HOME/.aws" "$args_file" | wc -l) == 0 ]] &&
+     [[ $(extract_option_values "ReadWritePaths=$TEST_HOME/.aws" "$args_file" | wc -l) == 0 ]] &&
+     [[ $(extract_option_values "InaccessiblePaths=$TEST_HOME/.config/gcloud" "$args_file" | wc -l) == 1 ]] &&
+     [[ $(extract_option_values "InaccessiblePaths=$TEST_HOME/.aws" "$args_file" | wc -l) == 1 ]]; then
+    passed=1
+  fi
+
+  assert_true_report \
+    "secrets-safe deny paths override profile mounts" \
+    "wrapper invocation" \
+    "$input_value" \
+    "conditions" \
+    "broad config mount remains; denied secret paths are not mounted and are marked inaccessible" \
+    "record" \
+    "$actual_value" \
+    "$passed"
+}
+
+@test "user-defined deny glob handles spaces in matched paths" {
+  mkdir -p \
+    "$TEST_HOME/.codex/wrapper-profiles.d" \
+    "$TEST_HOME/profile data/secret one" \
+    "$TEST_HOME/profile data/secret two"
+  : > "$TEST_HOME/profile data/secret one/token.txt"
+  : > "$TEST_HOME/profile data/secret two/token.txt"
+
+  cat > "$TEST_HOME/.codex/wrapper-profiles.d/reviewer.profile" <<EOF
+ro ~/profile data
+deny ~/profile data/secret*
+EOF
+
+  run_wrapper --profile reviewer
+
+  local args_file input_value actual_value passed
+  args_file="$TEST_LOG_DIR/systemd-run.args"
+  input_value="argv: codex --profile reviewer
+stdin_type: non-tty
+stdin_value: <empty>"
+  actual_value="$(cat <<EOF
+profile_ro_mounts: $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/profile data" "$args_file" | wc -l)
+secret_one_ro_mounts: $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/profile data/secret one" "$args_file" | wc -l)
+secret_two_ro_mounts: $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/profile data/secret two" "$args_file" | wc -l)
+secret_one_deny_mounts: $(extract_option_values "InaccessiblePaths=$TEST_HOME/profile data/secret one" "$args_file" | wc -l)
+secret_two_deny_mounts: $(extract_option_values "InaccessiblePaths=$TEST_HOME/profile data/secret two" "$args_file" | wc -l)
+EOF
+)"
+
+  passed=0
+  if [[ $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/profile data" "$args_file" | wc -l) == 1 ]] &&
+     [[ $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/profile data/secret one" "$args_file" | wc -l) == 0 ]] &&
+     [[ $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/profile data/secret two" "$args_file" | wc -l) == 0 ]] &&
+     [[ $(extract_option_values "InaccessiblePaths=$TEST_HOME/profile data/secret one" "$args_file" | wc -l) == 1 ]] &&
+     [[ $(extract_option_values "InaccessiblePaths=$TEST_HOME/profile data/secret two" "$args_file" | wc -l) == 1 ]]; then
+    passed=1
+  fi
+
+  assert_true_report \
+    "user-defined deny glob handles spaces in matched paths" \
+    "wrapper invocation" \
+    "$input_value" \
+    "conditions" \
+    "the parent read-only mount remains while spaced deny-glob matches are filtered and marked inaccessible" \
+    "record" \
+    "$actual_value" \
+    "$passed"
+}
+
+@test "existing ro and rw behavior remains compatible with wrapper profiles" {
+  run_wrapper --profile readonly --rw "$TEST_WORKDIR"
+
+  local args_file input_value actual_value passed
+  args_file="$TEST_LOG_DIR/systemd-run.args"
+  input_value="argv: codex --profile readonly --rw $TEST_WORKDIR
+stdin_type: non-tty
+stdin_value: <empty>"
+  actual_value="$(cat <<EOF
+rw_bind_mounts: $(extract_option_values "BindPaths=$TEST_WORKDIR" "$args_file" | wc -l)
+rw_write_mounts: $(extract_option_values "ReadWritePaths=$TEST_WORKDIR" "$args_file" | wc -l)
+ro_mounts: $(extract_option_values "BindReadOnlyPaths=$TEST_WORKDIR" "$args_file" | wc -l)
+network_deny_mounts: $(extract_option_values "IPAddressDeny=any" "$args_file" | wc -l)
+EOF
+)"
+
+  passed=0
+  if [[ $(extract_option_values "BindPaths=$TEST_WORKDIR" "$args_file" | wc -l) == 1 ]] &&
+     [[ $(extract_option_values "ReadWritePaths=$TEST_WORKDIR" "$args_file" | wc -l) == 1 ]] &&
+     [[ $(extract_option_values "BindReadOnlyPaths=$TEST_WORKDIR" "$args_file" | wc -l) == 0 ]] &&
+     [[ $(extract_option_values "IPAddressDeny=any" "$args_file" | wc -l) == 1 ]]; then
+    passed=1
+  fi
+
+  assert_true_report \
+    "existing ro and rw behavior remains compatible with wrapper profiles" \
+    "wrapper invocation" \
+    "$input_value" \
+    "conditions" \
+    "explicit --rw overrides readonly profile for the workspace while readonly still disables network" \
+    "record" \
+    "$actual_value" \
+    "$passed"
+}
+
 @test "path normalization deduplicates rw and suppresses duplicate ro when same path is rw" {
   mkdir -p "$TEST_ROOT/alpha" "$TEST_ROOT/beta"
   run_wrapper --rw "$TEST_ROOT/alpha" "$TEST_ROOT/alpha" --ro "$TEST_ROOT/alpha" "$TEST_ROOT/beta"
