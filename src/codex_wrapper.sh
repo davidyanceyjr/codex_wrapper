@@ -39,6 +39,8 @@ WRAPPER OPTIONS
   --ro=PATH     add one read-only bind for sandboxed run
   --rw PATH...  add one or more read-write binds for sandboxed run
   --rw=PATH     add one read-write bind for sandboxed run
+  --profile NAME
+                resolve a wrapper or native codex profile
   --agents      enable AGENTS.md.disabled and .agents.disabled entries under PWD
   --skills      enable .agents.disabled, .codex.disabled, skills.disabled, and SKILLS.disabled under PWD
   --skags       equivalent to --agents --skills
@@ -56,9 +58,13 @@ BEHAVIOR
   - fallback run uses:
       --ask-for-approval on-request
       --sandbox workspace-write
-      -c sandbox_workspace_write.network_access=true
+      -c sandbox_workspace_write.network_access=<true|false>
       --cd <launch-directory>
-  - wrapper --rw PATH applies only to the outer systemd sandbox
+  - wrapper --ro/--rw PATH and wrapper-managed --profile mounts apply only to the outer systemd sandbox
+  - wrapper profiles:
+      unprefixed names prefer wrapper profiles
+      codex:NAME forces native codex passthrough
+      wrapper:NAME requires a wrapper profile
 
 DEBUG
   CODEX_WRAPPER_DEBUG=1 codex
@@ -71,7 +77,7 @@ __codex_wrapper_parse_collect_paths() {
 	shift
 	while (($#)); do
 		case "$1" in
-		-- | --ro | --rw | --ro=* | --rw=* | --agents | --skills | --skags | --no-agents | --no-skills | --no-skags | --help | -h | --wrapper-help | --help-wrapper)
+		-- | --ro | --rw | --ro=* | --rw=* | --profile | --profile=* | --agents | --skills | --skags | --no-agents | --no-skills | --no-skags | --help | -h | --wrapper-help | --help-wrapper)
 			break
 			;;
 		esac
@@ -150,6 +156,22 @@ __codex_wrapper_parse() {
 				return 2
 			}
 			rw_paths+=("${arg#--rw=}")
+			shift
+			;;
+		--profile)
+			(($# >= 2)) || {
+				printf 'codex: missing argument for --profile\n' >&2
+				return 2
+			}
+			__codex_wrapper_resolve_profile_arg "$2" || return
+			shift 2
+			;;
+		--profile=*)
+			[[ -n ${arg#--profile=} ]] || {
+				printf 'codex: empty argument for --profile\n' >&2
+				return 2
+			}
+			__codex_wrapper_resolve_profile_arg "${arg#--profile=}" || return
 			shift
 			;;
 		--)
@@ -276,36 +298,426 @@ __codex_wrapper_exists() { [[ -e $1 || -S $1 ]]; }
 
 __codex_wrapper_canon() { realpath -e -- "$1" 2>/dev/null; }
 
-__codex_wrapper_normalize_paths() {
+__codex_wrapper_builtin_profile_exists() {
+	case "$1" in
+	git | ssh | worktree | readonly | config | config-wide | host-context | offline | online | secrets-safe)
+		return 0
+		;;
+	esac
+	return 1
+}
+
+__codex_wrapper_profile_name_is_safe() {
+	[[ $1 =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]
+}
+
+__codex_wrapper_user_profile_path() {
+	local name=$1
+	__codex_wrapper_profile_name_is_safe "$name" || return 1
+	printf '%s/.codex/wrapper-profiles.d/%s.profile\n' "$HOME" "$name"
+}
+
+__codex_wrapper_user_profile_exists() {
+	local path=
+	path=$(__codex_wrapper_user_profile_path "$1") || return 1
+	[[ -f $path ]]
+}
+
+__codex_wrapper_profile_exists() {
+	__codex_wrapper_builtin_profile_exists "$1" || __codex_wrapper_user_profile_exists "$1"
+}
+
+__codex_wrapper_apply_profile_mounts() {
+	local mode=$1
+	shift
+	case "$mode" in
+	ro) profile_ro_paths+=("$@") ;;
+	rw) profile_rw_paths+=("$@") ;;
+	deny) deny_path_specs+=("$@") ;;
+	esac
+}
+
+__codex_wrapper_apply_profile_network_policy() {
+	case "$1" in
+	default | on | off)
+		network_policy=$1
+		;;
+	esac
+}
+
+__codex_wrapper_expand_user_profile_path() {
+	local spec=$1
+	case "$spec" in
+	'~')
+		printf '%s\n' "$HOME"
+		;;
+	'~/'*)
+		printf '%s/%s\n' "$HOME" "${spec:2}"
+		;;
+	*)
+		printf '%s\n' "$spec"
+		;;
+	esac
+}
+
+__codex_wrapper_apply_builtin_profile() {
+	case "$1" in
+	worktree)
+		__codex_wrapper_apply_profile_mounts rw "$PWD"
+		__codex_wrapper_apply_profile_mounts ro \
+			"$HOME/.gitconfig" \
+			"$HOME/.config/git" \
+			"/etc/gitconfig" \
+			"/etc/ssl" \
+			"/etc/pki" \
+			"/usr/share/ca-certificates"
+		__codex_wrapper_apply_profile_network_policy on
+		;;
+	readonly)
+		__codex_wrapper_apply_profile_mounts ro "$PWD"
+		__codex_wrapper_apply_profile_network_policy off
+		;;
+	git)
+		__codex_wrapper_apply_profile_mounts rw "$PWD"
+		__codex_wrapper_apply_profile_mounts ro \
+			"$HOME/.gitconfig" \
+			"$HOME/.config/git" \
+			"/etc/gitconfig" \
+			"/etc/ssl" \
+			"/etc/pki" \
+			"/usr/share/ca-certificates" \
+			"$HOME/.ssh/config" \
+			"$HOME/.ssh/known_hosts" \
+			"$HOME/.ssh/known_hosts2" \
+			"/etc/ssh/ssh_config"
+		__codex_wrapper_apply_profile_network_policy on
+		;;
+	ssh)
+		__codex_wrapper_apply_profile_mounts ro \
+			"$HOME/.ssh/config" \
+			"$HOME/.ssh/known_hosts" \
+			"$HOME/.ssh/known_hosts2" \
+			"/etc/ssh" \
+			"/etc/ssl" \
+			"/etc/pki" \
+			"/usr/share/ca-certificates"
+		profile_env_passthroughs+=(SSH_AUTH_SOCK GIT_SSH_COMMAND)
+		__codex_wrapper_apply_profile_network_policy on
+		;;
+	config)
+		__codex_wrapper_apply_profile_mounts ro \
+			"$HOME/.config" \
+			"$HOME/.local/share" \
+			"/etc/os-release" \
+			"/etc/lsb-release" \
+			"/etc/hosts" \
+			"/etc/resolv.conf" \
+			"/etc/nsswitch.conf" \
+			"/etc/ssl" \
+			"/etc/pki"
+		;;
+	config-wide)
+		__codex_wrapper_apply_profile_mounts ro \
+			"/etc" \
+			"/usr/share" \
+			"/usr/local/share" \
+			"$HOME/.config" \
+			"$HOME/.local/share"
+		;;
+	host-context)
+		__codex_wrapper_apply_profile_mounts ro \
+			"/etc/os-release" \
+			"/etc/hostname" \
+			"/etc/hosts" \
+			"/etc/resolv.conf" \
+			"/etc/nsswitch.conf" \
+			"/proc/cpuinfo" \
+			"/proc/meminfo"
+		;;
+	offline)
+		__codex_wrapper_apply_profile_network_policy off
+		;;
+	online)
+		__codex_wrapper_apply_profile_network_policy on
+		;;
+	secrets-safe)
+		__codex_wrapper_apply_profile_mounts deny \
+			"$HOME/.ssh/id_*" \
+			"$HOME/.ssh/*_rsa" \
+			"$HOME/.ssh/*_ed25519" \
+			"$HOME/.ssh/*_ecdsa" \
+			"$HOME/.gnupg" \
+			"$HOME/.aws" \
+			"$HOME/.azure" \
+			"$HOME/.config/gcloud" \
+			"$HOME/.docker/config.json" \
+			"$HOME/.kube" \
+			"$HOME/.netrc" \
+			"$HOME/.npmrc" \
+			"$HOME/.pypirc" \
+			"$HOME/.cargo/credentials" \
+			"$HOME/.cargo/credentials.toml"
+		;;
+	esac
+}
+
+__codex_wrapper_load_user_profile() {
+	local name=$1 path= line= lineno=0 directive= value= spec=
+	path=$(__codex_wrapper_user_profile_path "$name") || return 1
+	[[ -f $path ]] || return 1
+
+	while IFS= read -r line || [[ -n $line ]]; do
+		lineno=$((lineno + 1))
+		line=${line%$'\r'}
+		line=${line#"${line%%[![:space:]]*}"}
+		line=${line%"${line##*[![:space:]]}"}
+		[[ -n $line && ${line:0:1} != "#" ]] || continue
+
+		directive=${line%%[[:space:]]*}
+		value=${line#"$directive"}
+		value=${value#"${value%%[![:space:]]*}"}
+
+		case "$directive" in
+		ro | rw | deny)
+			[[ -n $value ]] || {
+				printf 'codex: invalid wrapper profile %s:%s: missing value for %s\n' "$name" "$lineno" "$directive" >&2
+				return 2
+			}
+			spec=$(__codex_wrapper_expand_user_profile_path "$value")
+			__codex_wrapper_apply_profile_mounts "$directive" "$spec"
+			;;
+		network)
+			case "$value" in
+			default | on | off)
+				__codex_wrapper_apply_profile_network_policy "$value"
+				;;
+			*)
+				printf 'codex: invalid wrapper profile %s:%s: invalid network mode: %s\n' "$name" "$lineno" "$value" >&2
+				return 2
+				;;
+			esac
+			;;
+		*)
+			printf 'codex: invalid wrapper profile %s:%s: unknown directive: %s\n' "$name" "$lineno" "$directive" >&2
+			return 2
+			;;
+		esac
+	done < "$path"
+}
+
+__codex_wrapper_apply_wrapper_profile() {
+	local name=$1
+	if __codex_wrapper_builtin_profile_exists "$name"; then
+		__codex_wrapper_apply_builtin_profile "$name"
+		return
+	fi
+	__codex_wrapper_load_user_profile "$name"
+}
+
+__codex_wrapper_resolve_profile_arg() {
+	local raw=$1 name=
+	case "$raw" in
+	codex:*)
+		name=${raw#codex:}
+		[[ -n $name ]] || {
+			printf 'codex: invalid profile prefix, expected codex:NAME\n' >&2
+			return 2
+		}
+		app_args+=(--profile "$name")
+		;;
+	wrapper:*)
+		name=${raw#wrapper:}
+		[[ -n $name ]] || {
+			printf 'codex: invalid profile prefix, expected wrapper:NAME\n' >&2
+			return 2
+		}
+		__codex_wrapper_profile_exists "$name" || {
+			printf 'codex: unknown wrapper profile: %s\n' "$name" >&2
+			return 2
+		}
+		__codex_wrapper_apply_wrapper_profile "$name"
+		;;
+	*)
+		if __codex_wrapper_profile_exists "$raw"; then
+			__codex_wrapper_apply_wrapper_profile "$raw"
+		else
+			app_args+=(--profile "$raw")
+		fi
+		;;
+	esac
+}
+
+__codex_wrapper_normalize_mounts() {
+	local -n rw_input=$1
+	local -n ro_input=$2
+	local -n rw_output=$3
+	local -n ro_output=$4
+	local label=$5
+	local strict_missing=$6
 	local path resolved
 	local -A seen_rw=() seen_ro=()
-	local -a new_rw=() new_ro=()
 
-	for path in "${rw_paths[@]}"; do
+	rw_output=()
+	ro_output=()
+
+	for path in "${rw_input[@]}"; do
 		resolved=$(__codex_wrapper_canon "$path") || {
-			printf 'codex: rw path does not exist: %s\n' "$path" >&2
-			return 2
+			if [[ $strict_missing == 1 ]]; then
+				if [[ $label == cli ]]; then
+					printf 'codex: rw path does not exist: %s\n' "$path" >&2
+				else
+					printf 'codex: %s rw path does not exist: %s\n' "$label" "$path" >&2
+				fi
+				return 2
+			fi
+			continue
 		}
 		[[ -n ${seen_rw["$resolved"]+x} ]] || {
 			seen_rw["$resolved"]=1
-			new_rw+=("$resolved")
+			rw_output+=("$resolved")
 		}
 	done
 
-	for path in "${ro_paths[@]}"; do
+	for path in "${ro_input[@]}"; do
 		resolved=$(__codex_wrapper_canon "$path") || {
-			printf 'codex: ro path does not exist: %s\n' "$path" >&2
-			return 2
+			if [[ $strict_missing == 1 ]]; then
+				if [[ $label == cli ]]; then
+					printf 'codex: ro path does not exist: %s\n' "$path" >&2
+				else
+					printf 'codex: %s ro path does not exist: %s\n' "$label" "$path" >&2
+				fi
+				return 2
+			fi
+			continue
 		}
 		[[ -n ${seen_rw["$resolved"]+x} ]] && continue
 		[[ -n ${seen_ro["$resolved"]+x} ]] || {
 			seen_ro["$resolved"]=1
-			new_ro+=("$resolved")
+			ro_output+=("$resolved")
+		}
+	done
+}
+
+__codex_wrapper_expand_deny_paths() {
+	local spec path resolved nullglob_was_set=0
+	local -A seen=()
+	denied_paths=()
+
+	if shopt -q nullglob; then
+		nullglob_was_set=1
+	fi
+	shopt -s nullglob
+	for spec in "${deny_path_specs[@]}"; do
+		if [[ $spec == *[\*\?\[]* ]]; then
+			while IFS= read -r path; do
+				[[ -n $path ]] || continue
+				resolved=$(__codex_wrapper_canon "$path") || continue
+				[[ -n ${seen["$resolved"]+x} ]] || {
+					seen["$resolved"]=1
+					denied_paths+=("$resolved")
+				}
+			done < <(compgen -G "$spec")
+			continue
+		fi
+		__codex_wrapper_exists "$spec" || continue
+		resolved=$(__codex_wrapper_canon "$spec") || continue
+		[[ -n ${seen["$resolved"]+x} ]] || {
+			seen["$resolved"]=1
+			denied_paths+=("$resolved")
+		}
+	done
+	if ((nullglob_was_set)); then
+		shopt -s nullglob
+	else
+		shopt -u nullglob
+	fi
+}
+
+__codex_wrapper_path_is_denied() {
+	local path=$1 denied=
+	for denied in "${denied_paths[@]}"; do
+		if [[ $path == "$denied" || $path == "$denied"/* ]]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+__codex_wrapper_filter_denied_paths() {
+	local path=
+	local -a filtered_rw=() filtered_ro=()
+
+	for path in "${rw_paths[@]}"; do
+		__codex_wrapper_path_is_denied "$path" || filtered_rw+=("$path")
+	done
+	for path in "${ro_paths[@]}"; do
+		__codex_wrapper_path_is_denied "$path" || filtered_ro+=("$path")
+	done
+
+	rw_paths=("${filtered_rw[@]}")
+	ro_paths=("${filtered_ro[@]}")
+}
+
+__codex_wrapper_normalize_paths() {
+	local -a normalized_profile_rw=() normalized_profile_ro=()
+	local -a normalized_cli_rw=() normalized_cli_ro=()
+	local path=
+	local -A cli_ro_set=() final_rw_set=() final_ro_set=()
+
+	__codex_wrapper_normalize_mounts profile_rw_paths profile_ro_paths normalized_profile_rw normalized_profile_ro "profile" 0 || return
+	__codex_wrapper_normalize_mounts rw_paths ro_paths normalized_cli_rw normalized_cli_ro "cli" 1 || return
+	__codex_wrapper_expand_deny_paths
+
+	rw_paths=("${normalized_profile_rw[@]}")
+	ro_paths=("${normalized_profile_ro[@]}")
+
+	for path in "${normalized_cli_ro[@]}"; do
+		cli_ro_set["$path"]=1
+	done
+
+	for path in "${rw_paths[@]}"; do
+		[[ -n ${cli_ro_set["$path"]+x} ]] || final_rw_set["$path"]=1
+	done
+	for path in "${ro_paths[@]}"; do
+		[[ -n ${final_rw_set["$path"]+x} ]] || final_ro_set["$path"]=1
+	done
+	for path in "${normalized_cli_ro[@]}"; do
+		unset "final_rw_set[$path]"
+		final_ro_set["$path"]=1
+	done
+	for path in "${normalized_cli_rw[@]}"; do
+		unset "final_ro_set[$path]"
+		final_rw_set["$path"]=1
+	done
+
+	rw_paths=()
+	ro_paths=()
+	for path in "${normalized_profile_rw[@]}"; do
+		[[ -n ${final_rw_set["$path"]+x} ]] && {
+			rw_paths+=("$path")
+			unset "final_rw_set[$path]"
+		}
+	done
+	for path in "${normalized_profile_ro[@]}"; do
+		[[ -n ${final_ro_set["$path"]+x} ]] && {
+			ro_paths+=("$path")
+			unset "final_ro_set[$path]"
+		}
+	done
+	for path in "${normalized_cli_ro[@]}"; do
+		[[ -n ${final_ro_set["$path"]+x} ]] && {
+			ro_paths+=("$path")
+			unset "final_ro_set[$path]"
+		}
+	done
+	for path in "${normalized_cli_rw[@]}"; do
+		[[ -n ${final_rw_set["$path"]+x} ]] && {
+			rw_paths+=("$path")
+			unset "final_rw_set[$path]"
 		}
 	done
 
-	rw_paths=("${new_rw[@]}")
-	ro_paths=("${new_ro[@]}")
+	__codex_wrapper_filter_denied_paths
 }
 
 __codex_wrapper_require_real_codex() {
@@ -362,7 +774,11 @@ __codex_wrapper_restrained_args() {
 	mapfile -d '' -t base < <(__codex_wrapper_strip_policy_flags "$@")
 	printf '%s\0' --ask-for-approval on-request
 	printf '%s\0' --sandbox workspace-write
-	printf '%s\0' -c sandbox_workspace_write.network_access=true
+	if [[ $network_policy == off ]]; then
+		printf '%s\0' -c sandbox_workspace_write.network_access=false
+	else
+		printf '%s\0' -c sandbox_workspace_write.network_access=true
+	fi
 	printf '%s\0' --cd "$PWD"
 	((${#base[@]})) && printf '%s\0' "${base[@]}"
 	((${#passthrough_args[@]})) && printf '%s\0' "${passthrough_args[@]}"
@@ -374,6 +790,7 @@ __codex_wrapper_unit() {
 
 __codex_wrapper_run_prefix() {
 	local unit=$1 path
+	local pwd_canon default_pwd_mode=rw
 	local -a run=(
 		systemd-run
 		--user
@@ -393,11 +810,10 @@ __codex_wrapper_run_prefix() {
 		-p "PrivateTmp=yes"
 		-p "ProtectSystem=strict"
 		-p "ProtectHome=tmpfs"
-		-p "BindPaths=$PWD"
-		-p "ReadWritePaths=$PWD"
 		-p "BindPaths=$HOME/.codex"
 		-p "ReadWritePaths=$HOME/.codex"
 	)
+	pwd_canon=$(__codex_wrapper_canon "$PWD") || return
 
 	local -a default_ro=(
 		"$HOME/.config/gh"
@@ -417,12 +833,44 @@ __codex_wrapper_run_prefix() {
 	for path in "${rw_paths[@]}"; do
 		run+=(-p "BindPaths=$path" -p "ReadWritePaths=$path")
 	done
+	for path in "${rw_paths[@]}"; do
+		if [[ $path == "$pwd_canon" ]]; then
+			default_pwd_mode=explicit
+			break
+		fi
+	done
+	if [[ $default_pwd_mode != explicit ]]; then
+		for path in "${ro_paths[@]}"; do
+			if [[ $path == "$pwd_canon" ]]; then
+				default_pwd_mode=ro
+				break
+			fi
+		done
+	fi
+	case "$default_pwd_mode" in
+	rw)
+		run+=(-p "BindPaths=$pwd_canon" -p "ReadWritePaths=$pwd_canon")
+		;;
+	ro)
+		run+=(-p "BindReadOnlyPaths=$pwd_canon")
+		;;
+	esac
+	for path in "${denied_paths[@]}"; do
+		run+=(-p "InaccessiblePaths=$path")
+	done
+
+	if [[ $network_policy == off ]]; then
+		run+=(-p "IPAddressDeny=any")
+	fi
 
 	if [[ -n ${SSH_AUTH_SOCK:-} && -S ${SSH_AUTH_SOCK:-} ]]; then
 		run+=(
 			-E "SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
 			-p "BindReadOnlyPaths=$SSH_AUTH_SOCK"
 		)
+	fi
+	if [[ " ${profile_env_passthroughs[*]} " == *" GIT_SSH_COMMAND "* && -n ${GIT_SSH_COMMAND:-} ]]; then
+		run+=(-E "GIT_SSH_COMMAND=$GIT_SSH_COMMAND")
 	fi
 
 	printf '%s\0' "${run[@]}"
@@ -498,7 +946,9 @@ codex() {
 	local skills_disabled_detected=0
 
 	local -a ro_paths=() rw_paths=() app_args=() passthrough_args=()
+	local -a profile_ro_paths=() profile_rw_paths=() deny_path_specs=() denied_paths=() profile_env_passthroughs=()
 	local -a codex_prog=()
+	local network_policy=default
 	local show_help=0
 
 	__codex_wrapper_parse "$@" || return
