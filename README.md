@@ -50,6 +50,10 @@ Default access in primary mode:
   * `~/.config/gh`
   * `~/.gitconfig`
   * `~/.config/git`
+* selected host context is mounted read-only when present:
+  * `/etc/ssl`
+  * `/etc/hosts`
+  * `/etc/resolv.conf`
 * `SSH_AUTH_SOCK` is mounted read-only when an SSH agent is available
 * network access is available
 
@@ -107,6 +111,21 @@ Use custom mode when you want the wrapper to manage the outer execution boundary
 * structured output
 * review subcommands
 * ephemeral sessions
+
+The wrapper still injects its own primary or fallback policy flags before the
+forwarded native arguments. It also strips wrapper-managed policy flags that
+appear before `--` and replaces them with wrapper policy. This includes:
+
+* `--dangerously-bypass-approvals-and-sandbox`
+* `--yolo`
+* `--full-auto`
+* `--ask-for-approval` / `-a`
+* `--sandbox` / `-s`
+* `--add-dir`
+* `--cd`
+* `-c`
+
+Everything after `--` is then forwarded as native Codex arguments in order.
 
 Examples:
 
@@ -169,11 +188,19 @@ You grant access explicitly per run:
 codex --ro /path/to/dir /another/path
 ```
 
+Explicit CLI paths passed to `--ro` must already exist or the wrapper fails
+before launch. Optional read-only paths contributed by built-in or user wrapper
+profiles may be skipped when they are absent.
+
 #### Read-write access
 
 ```
 codex --rw /path/to/dir /another/path
 ```
+
+Explicit CLI paths passed to `--rw` must already exist or the wrapper fails
+before launch. Optional profile defaults may be skipped when absent unless a
+profile explicitly requires them.
 
 These are translated into systemd bind mounts.
 
@@ -184,6 +211,7 @@ The wrapper also consumes the existing `--profile` flag before `--`.
 Resolution rules:
 
 * repeated `--profile NAME` values are resolved left-to-right
+* `--profile=NAME` is supported and resolves the same way as `--profile NAME`
 * unprefixed names prefer wrapper-scoped built-ins
 * unknown unprefixed names pass through to native Codex unchanged
 * `codex:NAME` forces native passthrough as `--profile NAME`
@@ -238,6 +266,10 @@ codex --profile git
 ```
 
 ```
+codex --profile=git
+```
+
+```
 codex --profile git --profile reviewer
 ```
 
@@ -253,7 +285,7 @@ codex --profile config-wide --profile secrets-safe
 codex --profile readonly --profile online
 ```
 
-#### Temporarily toggle repo guidance
+#### Toggle repo guidance state
 
 ```
 codex --agents
@@ -272,8 +304,8 @@ enabled.
 `skills.disabled`, and `SKILLS.disabled` entries under the current `PWD`
 subtree back to their enabled names and leave them enabled.
 
-`--skags` is shorthand for enabling both AGENTS and skill sources for the same
-run.
+`--skags` is shorthand for enabling both AGENTS and skill sources and leaves
+them enabled after launch.
 
 `--no-agents` rename matching `AGENTS.md` and `.agents` entries under the
 current `PWD` subtree to `*.disabled` and leave them disabled.
@@ -282,8 +314,8 @@ current `PWD` subtree to `*.disabled` and leave them disabled.
 entries under the current `PWD` subtree to `*.disabled` and leave them
 disabled.
 
-`--no-skags` is shorthand for disabling both AGENTS and skill sources for the
-same run.
+`--no-skags` is shorthand for disabling both AGENTS and skill sources and
+leaves them disabled after launch.
 
 Default behavior: if `AGENTS.md.disabled`, `.agents.disabled`,
 `.codex.disabled`, `skills.disabled`, or `SKILLS.disabled` already exist under
@@ -513,7 +545,9 @@ codex --skags
 
 Stops wrapper parsing.
 
-Everything after is passed directly to Codex without wrapper filtering.
+Everything after is forwarded to native Codex in order. Wrapper-managed policy
+flags before `--` are stripped and replaced by the wrapper's primary or
+fallback policy flags.
 
 ```
 codex --rw ~/.local -- --model gpt-5-codex
@@ -531,6 +565,12 @@ codex --ro ~/.ssh ~/.config/git
 ### `--help`
 
 Shows wrapper help (this document summary).
+
+Alias forms:
+
+* `-h`
+* `--wrapper-help`
+* `--help-wrapper`
 
 ---
 
@@ -587,7 +627,7 @@ codex --ro ~/.ssh
 
 ---
 
-### Disable AGENTS for one run
+### Disable AGENTS until re-enabled
 
 ```
 codex --no-agents
@@ -595,7 +635,7 @@ codex --no-agents
 
 ---
 
-### Enable disabled AGENTS for one run
+### Re-enable disabled AGENTS
 
 ```
 codex --agents
@@ -603,7 +643,7 @@ codex --agents
 
 ---
 
-### Disable skill sources for one run
+### Disable skill sources until re-enabled
 
 ```
 codex --no-skills
@@ -611,7 +651,7 @@ codex --no-skills
 
 ---
 
-### Enable disabled skill sources for one run
+### Re-enable disabled skill sources
 
 ```
 codex --skills
@@ -619,7 +659,7 @@ codex --skills
 
 ---
 
-### Disable both AGENTS and skill sources for one run
+### Disable both AGENTS and skill sources until re-enabled
 
 ```
 codex --no-skags
@@ -627,7 +667,7 @@ codex --no-skags
 
 ---
 
-### Enable both AGENTS and skill sources for one run
+### Re-enable both AGENTS and skill sources
 
 ```
 codex --skags

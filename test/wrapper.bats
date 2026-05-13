@@ -177,6 +177,45 @@ EOF
     "$passed"
 }
 
+@test "equals-form wrapper profile resolves before launch" {
+  mkdir -p "$TEST_HOME/.ssh"
+  : > "$TEST_HOME/.ssh/config"
+  : > "$TEST_HOME/.ssh/known_hosts"
+  run_wrapper --profile=git
+
+  local args_file actual_tail input_value actual_value passed
+  args_file="$TEST_LOG_DIR/systemd-run.args"
+  actual_tail="$(extract_command_tail "$args_file")"
+  input_value="argv: codex --profile=git
+stdin_type: non-tty
+stdin_value: <empty>"
+  actual_value="$(cat <<EOF
+command_tail:
+$actual_tail
+ssh_config_mounts: $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/.ssh/config" "$args_file" | wc -l)
+known_hosts_mounts: $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/.ssh/known_hosts" "$args_file" | wc -l)
+EOF
+)"
+
+  passed=0
+  if ! printf '%s\n' "$actual_tail" | grep -Fx -- "--profile=git" >/dev/null &&
+     ! printf '%s\n' "$actual_tail" | grep -Fx -- "--profile" >/dev/null &&
+     [[ $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/.ssh/config" "$args_file" | wc -l) == 1 ]] &&
+     [[ $(extract_option_values "BindReadOnlyPaths=$TEST_HOME/.ssh/known_hosts" "$args_file" | wc -l) == 1 ]]; then
+    passed=1
+  fi
+
+  assert_true_report \
+    "equals-form wrapper profile resolves before launch" \
+    "wrapper invocation" \
+    "$input_value" \
+    "conditions" \
+    "native --profile passthrough is absent; git wrapper profile mounts ssh config and known_hosts" \
+    "record" \
+    "$actual_value" \
+    "$passed"
+}
+
 @test "unknown unprefixed profile passes through to codex" {
   run_wrapper --profile reviewer
 
@@ -716,6 +755,42 @@ stdin_value: <empty>"
       "$(printf '%s' "$output" | sed -n '1p')" \
       "$(log_file_exists "$TEST_LOG_DIR/systemd-run.args")" \
       "$(log_file_exists "$TEST_LOG_DIR/codex.args")")"
+}
+
+@test "wrapper help aliases exit before any sandbox or native codex launch" {
+  local alias input_value actual_value expected_value observed_value
+
+  for alias in -h --wrapper-help --help-wrapper; do
+    run_wrapper "$alias"
+
+    input_value="argv: codex $alias
+stdin_type: non-tty
+stdin_value: <empty>"
+    actual_value="$(printf 'alias=%s\nstatus=%s\noutput=\n%s\nsystemd_run_log_exists=%s\ncodex_log_exists=%s' \
+      "$alias" \
+      "$status" \
+      "$output" \
+      "$(log_file_exists "$TEST_LOG_DIR/systemd-run.args")" \
+      "$(log_file_exists "$TEST_LOG_DIR/codex.args")")"
+    expected_value="$(printf 'alias=%s\nstatus=0\noutput=\n%s\nsystemd_run_log_exists=no\ncodex_log_exists=no' \
+      "$alias" \
+      "codex (wrapper)")"
+    observed_value="$(printf 'alias=%s\nstatus=%s\noutput=\n%s\nsystemd_run_log_exists=%s\ncodex_log_exists=%s' \
+      "$alias" \
+      "$status" \
+      "$(printf '%s' "$output" | sed -n '1p')" \
+      "$(log_file_exists "$TEST_LOG_DIR/systemd-run.args")" \
+      "$(log_file_exists "$TEST_LOG_DIR/codex.args")")"
+
+    assert_equal_report \
+      "wrapper help aliases exit before any sandbox or native codex launch" \
+      "wrapper invocation" \
+      "$input_value" \
+      "status and output record" \
+      "$expected_value" \
+      "status and output record" \
+      "$observed_value"
+  done
 }
 
 @test "--no-agents disables AGENTS.md entries and leaves them disabled after launch" {
