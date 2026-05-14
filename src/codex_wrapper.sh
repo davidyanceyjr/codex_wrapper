@@ -105,15 +105,18 @@ __codex_wrapper_parse() {
 			;;
 		--agents-off)
 			disable_agents=1
+			__codex_wrapper_record_off_flag --agents-off
 			shift
 			;;
 		--skills-off)
 			disable_skills=1
+			__codex_wrapper_record_off_flag --skills-off
 			shift
 			;;
 		--skags-off)
 			disable_agents=1
 			disable_skills=1
+			__codex_wrapper_record_off_flag --skags-off
 			shift
 			;;
 		--agents | --skills | --skags | --no-agents | --no-skills | --no-skags)
@@ -183,6 +186,14 @@ __codex_wrapper_apply_default_enables() {
 	return 0
 }
 
+__codex_wrapper_record_off_flag() {
+	local flag=$1 existing=
+	for existing in "${requested_off_flags[@]}"; do
+		[[ $existing == "$flag" ]] && return 0
+	done
+	requested_off_flags+=("$flag")
+}
+
 __codex_wrapper_find_targets() {
 	local category=$1
 	case "$category" in
@@ -248,6 +259,40 @@ __codex_wrapper_status_notice() {
 		return 0
 	fi
 	printf 'codex-wrapper: %s hidden for this session under %s\n' "$label" "$PWD" >&2
+}
+
+__codex_wrapper_off_flags_requested() {
+	((${#requested_off_flags[@]}))
+}
+
+__codex_wrapper_off_flag_prompt_label() {
+	printf '%s' "${requested_off_flags[*]}"
+}
+
+__codex_wrapper_prompt_fallback_without_off_flags() {
+	local prompt reply tty_fd
+	prompt="Continue without $(__codex_wrapper_off_flag_prompt_label)? [Y/n] "
+
+	if { exec {tty_fd}<>/dev/tty; } 2>/dev/null; then
+		printf '%s' "$prompt" >&"$tty_fd"
+		IFS= read -r reply <&"$tty_fd" || {
+			exec {tty_fd}>&-
+			exec {tty_fd}<&-
+			return 1
+		}
+		exec {tty_fd}>&-
+		exec {tty_fd}<&-
+	else
+		printf '%s' "$prompt" >&2
+		IFS= read -r reply || return 1
+	fi
+
+	case "$reply" in
+	'' | [Yy] | [Yy][Ee][Ss])
+		return 0
+		;;
+	esac
+	return 1
 }
 
 __codex_wrapper_exists() { [[ -e $1 || -S $1 ]]; }
@@ -814,6 +859,9 @@ __codex_wrapper_run_prefix() {
 	for path in "${denied_paths[@]}"; do
 		run+=(-p "InaccessiblePaths=$path")
 	done
+	for path in "${session_hide_paths[@]}"; do
+		run+=(-p "InaccessiblePaths=$path")
+	done
 
 	if [[ $network_policy == off ]]; then
 		run+=(-p "IPAddressDeny=any")
@@ -899,6 +947,7 @@ codex() {
 
 	local -a ro_paths=() rw_paths=() app_args=() passthrough_args=()
 	local -a profile_ro_paths=() profile_rw_paths=() deny_path_specs=() denied_paths=() profile_env_passthroughs=()
+	local -a requested_off_flags=()
 	local -a agent_hide_paths=() skill_hide_paths=() session_hide_paths=()
 	local -a codex_prog=()
 	local network_policy=default
@@ -934,6 +983,12 @@ codex() {
 	if __codex_wrapper_should_fallback "$unit"; then
 		__codex_wrapper_log "sandbox did not start codex; using fallback"
 		__codex_wrapper_cleanup "$unit"
+		if __codex_wrapper_off_flags_requested; then
+			if ! __codex_wrapper_prompt_fallback_without_off_flags; then
+				__codex_wrapper_log "fallback declined because off-flags were requested"
+				return 1
+			fi
+		fi
 		__codex_wrapper_fallback
 		return $?
 	fi
