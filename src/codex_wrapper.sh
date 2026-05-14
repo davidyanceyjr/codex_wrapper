@@ -41,12 +41,9 @@ WRAPPER OPTIONS
   --rw=PATH     add one read-write bind for sandboxed run
   --profile NAME
                 resolve a wrapper or native codex profile
-  --agents      enable AGENTS.md.disabled and .agents.disabled entries under PWD
-  --skills      enable .agents.disabled, .codex.disabled, skills.disabled, and SKILLS.disabled under PWD
-  --skags       equivalent to --agents --skills
-  --no-agents   disable AGENTS.md and .agents entries under PWD
-  --no-skills   disable .agents, .codex, skills, and SKILLS under PWD
-  --no-skags    equivalent to --no-agents --no-skills
+  --agents-off  hide AGENTS.md and .agents sources for this session only
+  --skills-off  hide .agents, .codex, skills, and SKILLS sources for this session only
+  --skags-off   equivalent to --agents-off --skills-off
   --help, -h    show this help
   --            stop wrapper parsing; forward rest to codex
 
@@ -77,7 +74,7 @@ __codex_wrapper_parse_collect_paths() {
 	shift
 	while (($#)); do
 		case "$1" in
-		-- | --ro | --rw | --ro=* | --rw=* | --profile | --profile=* | --agents | --skills | --skags | --no-agents | --no-skills | --no-skags | --help | -h | --wrapper-help | --help-wrapper)
+		-- | --ro | --rw | --ro=* | --rw=* | --profile | --profile=* | --agents-off | --skills-off | --skags-off | --agents | --skills | --skags | --no-agents | --no-skills | --no-skags | --help | -h | --wrapper-help | --help-wrapper)
 			break
 			;;
 		esac
@@ -106,31 +103,22 @@ __codex_wrapper_parse() {
 			show_help=1
 			shift
 			;;
-		--agents)
-			enable_agents=1
-			shift
-			;;
-		--skills)
-			enable_skills=1
-			shift
-			;;
-		--skags)
-			enable_agents=1
-			enable_skills=1
-			shift
-			;;
-		--no-agents)
+		--agents-off)
 			disable_agents=1
 			shift
 			;;
-		--no-skills)
+		--skills-off)
 			disable_skills=1
 			shift
 			;;
-		--no-skags)
+		--skags-off)
 			disable_agents=1
 			disable_skills=1
 			shift
+			;;
+		--agents | --skills | --skags | --no-agents | --no-skills | --no-skags)
+			printf 'codex: legacy toggle flag %s is no longer supported; use --agents-off, --skills-off, or --skags-off\n' "$arg" >&2
+			return 2
 			;;
 		--ro)
 			shift
@@ -188,14 +176,7 @@ __codex_wrapper_parse() {
 }
 
 __codex_wrapper_validate_toggle_flags() {
-	if ((enable_agents && disable_agents)); then
-		printf 'codex: conflicting options: --agents and --no-agents\n' >&2
-		return 2
-	fi
-	if ((enable_skills && disable_skills)); then
-		printf 'codex: conflicting options: --skills and --no-skills\n' >&2
-		return 2
-	fi
+	return 0
 }
 
 __codex_wrapper_apply_default_enables() {

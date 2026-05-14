@@ -288,45 +288,31 @@ codex --profile readonly --profile online
 #### Toggle repo guidance state
 
 ```
-codex --agents
-codex --skills
-codex --skags
-codex --no-agents
-codex --no-skills
-codex --no-skags
+codex --agents-off
+codex --skills-off
+codex --skags-off
 ```
 
-`--agents` rename matching `AGENTS.md.disabled` and `.agents.disabled` entries
-under the current `PWD` subtree back to their enabled names and leave them
-enabled.
+These flags hide workflow sources for the launched Codex session only.
 
-`--skills` rename matching `.agents.disabled`, `.codex.disabled`,
-`skills.disabled`, and `SKILLS.disabled` entries under the current `PWD`
-subtree back to their enabled names and leave them enabled.
+`--agents-off` hides `AGENTS.md` and `.agents` under the current `PWD`
+subtree for that run.
 
-`--skags` is shorthand for enabling both AGENTS and skill sources and leaves
-them enabled after launch.
+`--skills-off` hides `.agents`, `.codex`, `skills`, and `SKILLS` under the
+current `PWD` subtree for that run.
 
-`--no-agents` rename matching `AGENTS.md` and `.agents` entries under the
-current `PWD` subtree to `*.disabled` and leave them disabled.
+`--skags-off` applies both categories for the same run.
 
-`--no-skills` rename matching `.agents`, `.codex`, `skills`, and `SKILLS`
-entries under the current `PWD` subtree to `*.disabled` and leave them
-disabled.
+`.agents` belongs to both categories because it can carry AGENTS-style
+guidance and skill-routing metadata.
 
-`--no-skags` is shorthand for disabling both AGENTS and skill sources and
-leaves them disabled after launch.
+These flags do not rename files or directories, do not use `*.disabled`
+entries, and leave on-disk names unchanged after the run, including if Codex
+exits, fails, or the wrapper falls back.
 
-Default behavior: if `AGENTS.md.disabled`, `.agents.disabled`,
-`.codex.disabled`, `skills.disabled`, or `SKILLS.disabled` already exist under
-`PWD`, the wrapper enables them before launching Codex and leaves them enabled.
-
-To keep workflow sources off for a specific run, you must explicitly pass
-`--no-agents`, `--no-skills`, or `--no-skags`.
-
-If matching `*.disabled` entries already exist under `PWD`, the wrapper treats
-them as enabled by default and renames them back to their enabled names unless
-`--no-agents`, `--no-skills`, or `--no-skags` keeps that category disabled.
+If `systemd-run` cannot launch and one or more off-flags were requested, the
+wrapper prompts `Continue without <flag>? [Y/n]`; accepting reruns without the
+offending flag or flags, and declining exits without running Codex.
 
 ---
 
@@ -476,67 +462,34 @@ codex --rw ~/.local ~/src
 
 ---
 
-### `--no-agents`
+### `--agents-off`
 
-Disable `AGENTS.md` and `.agents` entries under the current `PWD` subtree and
-leave them disabled.
-
-```
-codex --no-agents
-```
-
----
-
-### `--agents`
-
-Enable `AGENTS.md.disabled` and `.agents.disabled` entries under the current
-`PWD` subtree and leave them enabled.
+Hide `AGENTS.md` and `.agents` under the current `PWD` subtree for the launched
+Codex session only.
 
 ```
-codex --agents
+codex --agents-off
 ```
 
 ---
 
-### `--no-skills`
+### `--skills-off`
 
-Disable `.agents`, `.codex`, `skills`, and `SKILLS` entries under the current
-`PWD` subtree and leave them disabled.
-
-```
-codex --no-skills
-```
-
----
-
-### `--skills`
-
-Enable `.agents.disabled`, `.codex.disabled`, `skills.disabled`, and
-`SKILLS.disabled` entries under the current `PWD` subtree and leave them
-enabled.
+Hide `.agents`, `.codex`, `skills`, and `SKILLS` under the current `PWD`
+subtree for the launched Codex session only.
 
 ```
-codex --skills
+codex --skills-off
 ```
 
 ---
 
-### `--no-skags`
+### `--skags-off`
 
-Equivalent to passing both `--no-agents` and `--no-skills`.
-
-```
-codex --no-skags
-```
-
----
-
-### `--skags`
-
-Equivalent to passing both `--agents` and `--skills`.
+Equivalent to passing both `--agents-off` and `--skills-off`.
 
 ```
-codex --skags
+codex --skags-off
 ```
 
 ---
@@ -627,50 +580,26 @@ codex --ro ~/.ssh
 
 ---
 
-### Disable AGENTS until re-enabled
+### Hide AGENTS for one session
 
 ```
-codex --no-agents
-```
-
----
-
-### Re-enable disabled AGENTS
-
-```
-codex --agents
+codex --agents-off
 ```
 
 ---
 
-### Disable skill sources until re-enabled
+### Hide skill sources for one session
 
 ```
-codex --no-skills
-```
-
----
-
-### Re-enable disabled skill sources
-
-```
-codex --skills
+codex --skills-off
 ```
 
 ---
 
-### Disable both AGENTS and skill sources until re-enabled
+### Hide both AGENTS and skill sources for one session
 
 ```
-codex --no-skags
-```
-
----
-
-### Re-enable both AGENTS and skill sources
-
-```
-codex --skags
+codex --skags-off
 ```
 
 ---
