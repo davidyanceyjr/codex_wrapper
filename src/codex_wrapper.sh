@@ -180,12 +180,7 @@ __codex_wrapper_validate_toggle_flags() {
 }
 
 __codex_wrapper_apply_default_enables() {
-	if ((agents_disabled_detected && !disable_agents)); then
-		enable_agents=1
-	fi
-	if ((skills_disabled_detected && !disable_skills)); then
-		enable_skills=1
-	fi
+	return 0
 }
 
 __codex_wrapper_find_targets() {
@@ -197,82 +192,62 @@ __codex_wrapper_find_targets() {
 	skills)
 		find "$PWD" -depth \( -name '.agents' -o -name 'skills' -o -name 'SKILLS' -o -name '.codex' \) -print0
 		;;
-	agents_disabled)
-		find "$PWD" -depth \( -name 'AGENTS.md.disabled' -o -name '.agents.disabled' \) -print0
-		;;
-	skills_disabled)
-		find "$PWD" -depth \( -name '.agents.disabled' -o -name 'skills.disabled' -o -name 'SKILLS.disabled' -o -name '.codex.disabled' \) -print0
-		;;
 	esac
 }
 
-__codex_wrapper_scan_disabled_state() {
-	agents_disabled_detected=0
-	skills_disabled_detected=0
+__codex_wrapper_append_unique_paths() {
+	local -n output=$1
+	shift
+	local path=
+	local -A seen=()
 
-	local -a matches=()
-	mapfile -d '' -t matches < <(__codex_wrapper_find_targets agents_disabled)
-	((${#matches[@]})) && agents_disabled_detected=1
-
-	matches=()
-	mapfile -d '' -t matches < <(__codex_wrapper_find_targets skills_disabled)
-	((${#matches[@]})) && skills_disabled_detected=1
+	for path in "${output[@]}"; do
+		seen["$path"]=1
+	done
+	for path in "$@"; do
+		[[ -n ${seen["$path"]+x} ]] && continue
+		seen["$path"]=1
+		output+=("$path")
+	done
 }
 
-__codex_wrapper_apply_disable() {
-	local category=$1 path
+__codex_wrapper_collect_hide_targets() {
+	local category=$1
+	local -n output=$2
+	local path=
 	local -a matches=()
 
 	mapfile -d '' -t matches < <(__codex_wrapper_find_targets "$category")
 	for path in "${matches[@]}"; do
-		[[ -e $path && ! -e ${path}.disabled ]] || continue
-		mv -- "$path" "${path}.disabled" || return
-		case "$category" in
-		agents) agents_disabled_detected=1 ;;
-		skills) skills_disabled_detected=1 ;;
-		esac
+		[[ -e $path ]] || continue
+		output+=("$path")
 	done
 }
 
-__codex_wrapper_apply_enable() {
-	local category=$1 path original
-	local -a matches=()
+__codex_wrapper_collect_session_hide_targets() {
+	agent_hide_paths=()
+	skill_hide_paths=()
+	session_hide_paths=()
 
-	mapfile -d '' -t matches < <(__codex_wrapper_find_targets "${category}_disabled")
-	for path in "${matches[@]}"; do
-		original=${path%.disabled}
-		[[ -e $path && ! -e $original ]] || continue
-		mv -- "$path" "$original" || return
-	done
+	((disable_agents)) && __codex_wrapper_collect_hide_targets agents agent_hide_paths
+	((disable_skills)) && __codex_wrapper_collect_hide_targets skills skill_hide_paths
+
+	__codex_wrapper_append_unique_paths session_hide_paths "${agent_hide_paths[@]}"
+	__codex_wrapper_append_unique_paths session_hide_paths "${skill_hide_paths[@]}"
 }
 
 __codex_wrapper_status_notice() {
 	local label=
-	if ((agents_disabled_detected && skills_disabled_detected)); then
+	if ((disable_agents && disable_skills)); then
 		label='AGENTS and SKILLS'
-	elif ((agents_disabled_detected)); then
+	elif ((disable_agents)); then
 		label='AGENTS'
-	elif ((skills_disabled_detected)); then
+	elif ((disable_skills)); then
 		label='SKILLS'
 	else
 		return 0
 	fi
-	printf 'codex-wrapper: %s disabled under %s\n' "$label" "$PWD" >&2
-}
-
-__codex_wrapper_enable_notice() {
-	local label=
-	if ((enable_agents && enable_skills)); then
-		label='AGENTS and SKILLS'
-	elif ((enable_agents)); then
-		label='AGENTS'
-	elif ((enable_skills)); then
-		label='SKILLS'
-	else
-		return 0
-	fi
-	((enable_agents || enable_skills)) || return 0
-	printf 'codex-wrapper: %s enabled under %s\n' "$label" "$PWD" >&2
+	printf 'codex-wrapper: %s hidden for this session under %s\n' "$label" "$PWD" >&2
 }
 
 __codex_wrapper_exists() { [[ -e $1 || -S $1 ]]; }
@@ -919,15 +894,12 @@ codex() {
 	local real_codex="${CODEX_WRAPPER_REAL_CODEX:-/usr/bin/codex}"
 	local debug="${CODEX_WRAPPER_DEBUG:-0}"
 	local remaining=0
-	local enable_agents=0
-	local enable_skills=0
 	local disable_agents=0
 	local disable_skills=0
-	local agents_disabled_detected=0
-	local skills_disabled_detected=0
 
 	local -a ro_paths=() rw_paths=() app_args=() passthrough_args=()
 	local -a profile_ro_paths=() profile_rw_paths=() deny_path_specs=() denied_paths=() profile_env_passthroughs=()
+	local -a agent_hide_paths=() skill_hide_paths=() session_hide_paths=()
 	local -a codex_prog=()
 	local network_policy=default
 	local show_help=0
@@ -941,22 +913,8 @@ codex() {
 	__codex_wrapper_validate_toggle_flags || return
 	__codex_wrapper_require_real_codex || return
 	__codex_wrapper_select_codex_prog
-	__codex_wrapper_scan_disabled_state
 	__codex_wrapper_apply_default_enables
-	if ((enable_agents)); then
-		__codex_wrapper_apply_enable agents || return
-	fi
-	if ((enable_skills)); then
-		__codex_wrapper_apply_enable skills || return
-	fi
-	if ((disable_agents)); then
-		__codex_wrapper_apply_disable agents || return
-	fi
-	if ((disable_skills)); then
-		__codex_wrapper_apply_disable skills || return
-	fi
-	__codex_wrapper_scan_disabled_state
-	__codex_wrapper_enable_notice
+	__codex_wrapper_collect_session_hide_targets
 	__codex_wrapper_status_notice
 
 	local unit rc
