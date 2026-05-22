@@ -68,13 +68,34 @@ DEBUG
 EOF
 }
 
+__codex_wrapper_is_legacy_toggle_flag() {
+	case "$1" in
+	--agents | --skills | --skags | --no-agents | --no-skills | --no-skags)
+		return 0
+		;;
+	esac
+	return 1
+}
+
+__codex_wrapper_reject_legacy_toggle_flag() {
+	printf 'codex: legacy toggle flag %s is no longer supported; use --agents-off, --skills-off, or --skags-off\n' "$1" >&2
+	return 2
+}
+
 __codex_wrapper_parse_collect_paths() {
 	local mode=$1
 	local added=0
 	shift
 	while (($#)); do
+		if __codex_wrapper_is_legacy_toggle_flag "$1"; then
+			((added)) || {
+				__codex_wrapper_reject_legacy_toggle_flag "$1"
+				return
+			}
+			break
+		fi
 		case "$1" in
-		-- | --ro | --rw | --ro=* | --rw=* | --profile | --profile=* | --agents-off | --skills-off | --skags-off | --agents | --skills | --skags | --no-agents | --no-skills | --no-skags | --help | -h | --wrapper-help | --help-wrapper)
+		-- | --ro | --rw | --ro=* | --rw=* | --profile | --profile=* | --agents-off | --skills-off | --skags-off | --help | -h | --wrapper-help | --help-wrapper)
 			break
 			;;
 		esac
@@ -120,8 +141,8 @@ __codex_wrapper_parse() {
 			shift
 			;;
 		--agents | --skills | --skags | --no-agents | --no-skills | --no-skags)
-			printf 'codex: legacy toggle flag %s is no longer supported; use --agents-off, --skills-off, or --skags-off\n' "$arg" >&2
-			return 2
+			__codex_wrapper_reject_legacy_toggle_flag "$arg"
+			return
 			;;
 		--ro)
 			shift
@@ -517,6 +538,10 @@ __codex_wrapper_apply_wrapper_profile() {
 
 __codex_wrapper_resolve_profile_arg() {
 	local raw=$1 name=
+	__codex_wrapper_is_legacy_toggle_flag "$raw" && {
+		__codex_wrapper_reject_legacy_toggle_flag "$raw"
+		return
+	}
 	case "$raw" in
 	codex:*)
 		name=${raw#codex:}

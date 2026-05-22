@@ -926,6 +926,96 @@ stdin_value: <empty>"
   done
 }
 
+@test "legacy toggle flags are rejected consistently when consumed as wrapper option values" {
+  local flag input_value observed_value
+
+  for flag in --no-agents --no-skills --no-skags --agents --skills --skags; do
+    run_wrapper --ro "$flag" -- --help
+
+    input_value="argv: codex --ro $flag -- --help
+stdin_type: non-tty
+stdin_value: <empty>"
+    observed_value="$(printf 'flag=%s\nstatus=%s\noutput=\n%s\nsystemd_run_log_exists=%s\ncodex_log_exists=%s' \
+      "$flag" \
+      "$status" \
+      "$output" \
+      "$(log_file_exists "$TEST_LOG_DIR/systemd-run.args")" \
+      "$(log_file_exists "$TEST_LOG_DIR/codex.args")")"
+
+    assert_equal_report \
+      "legacy toggle flags are rejected consistently when consumed as wrapper option values" \
+      "wrapper invocation" \
+      "$input_value" \
+      "status and output record" \
+      "$(printf 'flag=%s\nstatus=2\noutput=\n%s\nsystemd_run_log_exists=no\ncodex_log_exists=no' "$flag" "codex: legacy toggle flag $flag is no longer supported; use --agents-off, --skills-off, or --skags-off")" \
+      "status and output record" \
+      "$observed_value"
+
+    run_wrapper --ro /tmp "$flag" -- --help
+
+    input_value="argv: codex --ro /tmp $flag -- --help
+stdin_type: non-tty
+stdin_value: <empty>"
+    observed_value="$(printf 'flag=%s\nstatus=%s\noutput=\n%s\nsystemd_run_log_exists=%s\ncodex_log_exists=%s' \
+      "$flag" \
+      "$status" \
+      "$output" \
+      "$(log_file_exists "$TEST_LOG_DIR/systemd-run.args")" \
+      "$(log_file_exists "$TEST_LOG_DIR/codex.args")")"
+
+    assert_equal_report \
+      "legacy toggle flags are rejected consistently when consumed as wrapper option values" \
+      "wrapper invocation" \
+      "$input_value" \
+      "status and output record" \
+      "$(printf 'flag=%s\nstatus=2\noutput=\n%s\nsystemd_run_log_exists=no\ncodex_log_exists=no' "$flag" "codex: legacy toggle flag $flag is no longer supported; use --agents-off, --skills-off, or --skags-off")" \
+      "status and output record" \
+      "$observed_value"
+
+    run_wrapper --rw /tmp "$flag" -- --help
+
+    input_value="argv: codex --rw /tmp $flag -- --help
+stdin_type: non-tty
+stdin_value: <empty>"
+    observed_value="$(printf 'flag=%s\nstatus=%s\noutput=\n%s\nsystemd_run_log_exists=%s\ncodex_log_exists=%s' \
+      "$flag" \
+      "$status" \
+      "$output" \
+      "$(log_file_exists "$TEST_LOG_DIR/systemd-run.args")" \
+      "$(log_file_exists "$TEST_LOG_DIR/codex.args")")"
+
+    assert_equal_report \
+      "legacy toggle flags are rejected consistently when consumed as wrapper option values" \
+      "wrapper invocation" \
+      "$input_value" \
+      "status and output record" \
+      "$(printf 'flag=%s\nstatus=2\noutput=\n%s\nsystemd_run_log_exists=no\ncodex_log_exists=no' "$flag" "codex: legacy toggle flag $flag is no longer supported; use --agents-off, --skills-off, or --skags-off")" \
+      "status and output record" \
+      "$observed_value"
+
+    run_wrapper --profile "$flag" -- --help
+
+    input_value="argv: codex --profile $flag -- --help
+stdin_type: non-tty
+stdin_value: <empty>"
+    observed_value="$(printf 'flag=%s\nstatus=%s\noutput=\n%s\nsystemd_run_log_exists=%s\ncodex_log_exists=%s' \
+      "$flag" \
+      "$status" \
+      "$output" \
+      "$(log_file_exists "$TEST_LOG_DIR/systemd-run.args")" \
+      "$(log_file_exists "$TEST_LOG_DIR/codex.args")")"
+
+    assert_equal_report \
+      "legacy toggle flags are rejected consistently when consumed as wrapper option values" \
+      "wrapper invocation" \
+      "$input_value" \
+      "status and output record" \
+      "$(printf 'flag=%s\nstatus=2\noutput=\n%s\nsystemd_run_log_exists=no\ncodex_log_exists=no' "$flag" "codex: legacy toggle flag $flag is no longer supported; use --agents-off, --skills-off, or --skags-off")" \
+      "status and output record" \
+      "$observed_value"
+  done
+}
+
 @test "workflow sources remain unchanged on disk without off-flags" {
   export STUB_SYSTEMD_RUN_INVOKE_COMMAND=1
   export STUB_CODEX_WORKFLOW_STATE_SNAPSHOT="$TEST_LOG_DIR/workflow-state.snapshot"
